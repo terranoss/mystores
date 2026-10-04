@@ -29,6 +29,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
 
   // Poll for pending order count every 60s
   useEffect(() => {
@@ -80,15 +81,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 const isParentActive = item.children.some(
                   (child) => location.pathname === child.path
                 );
-                const isOpen = isParentActive; // Auto-open when child is active
+                const isOpen = openSubmenus.has(item.path) || isParentActive;
+                
+                const toggleSubmenu = (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  setOpenSubmenus(prev => {
+                    const next = new Set(prev);
+                    if (next.has(item.path)) {
+                      next.delete(item.path);
+                    } else {
+                      next.add(item.path);
+                    }
+                    return next;
+                  });
+                };
                 
                 return (
                   <div key={item.path} className="space-y-1">
-                    <Link
-                      to={item.path}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        isParentActive
+                    <button
+                      onClick={toggleSubmenu}
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 w-full text-left ${
+                        isParentActive || isOpen
                           ? 'bg-clay-500/15 text-clay-400 shadow-inner'
                           : 'text-ink-300 hover:text-white hover:bg-ink-800/50'
                       }`}
@@ -103,7 +116,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                           {pendingCount > 99 ? '99+' : pendingCount}
                         </span>
                       )}
-                    </Link>
+                      <span className={`ml-auto transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}>
+                        ▸
+                      </span>
+                    </button>
                     {isOpen && (
                       <div className="pl-10 space-y-0.5 animate-slideDown">
                         {item.children.map((child) => {
