@@ -1,0 +1,9 @@
+{
+  "name": "stores",
+  "private": true,
+  "scripts": {
+    "deploy": "python deploy/deploy.py",
+    "build": "npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev"
+  }
+}

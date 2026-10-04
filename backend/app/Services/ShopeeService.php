@@ -1,0 +1,293 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\ShopeeStore;
+use EcomPHP\Shopee\Client;
+use EcomPHP\Shopee\Errors\AuthorizationException;
+use EcomPHP\Shopee\Errors\ShopeeException;
+use GuzzleHttp\RequestOptions;
+use Illuminate\Support\Facades\Cache;
+
+class ShopeeService
+{
+    /** Refresh access tokens this many seconds before expiry (Shopee: refresh before 4h expiry). */
+    public const ACCESS_TOKEN_REFRESH_BUFFER_SECONDS = 1800;
+
+    private Client $client;
+
+    public function __construct()
+    {
+        $partnerId = config('shopee.partner_id');
+        $partnerKey = config('shopee.partner_key');
+
+        $this->client = new Client($partnerId, $partnerKey, [
+            'timeout' => 30,
+        ]);
+
+        if (config('shopee.sandbox')) {
+            $this->client->useDebugMode();
+        }
+    }
+
+    /**
+     * Get the raw SDK client (for direct API access).
+     */
+    public function client(): Client
+    {
+        return $this->client;
+    }
+
+    /**
+     * Set the access token for a specific store and return the client.
+     * Refreshes the access token when expired or within the near-expiry buffer.
+     */
+    public function forStore(ShopeeStore $store): Client
+    {
+        $store->loadMissing('token');
+
+        if (!$store->token) {
+            throw new \RuntimeException("Store #{$store->id} has no token.");
+        }
+
+        if ($store->token->auth_expires_at->isPast()) {
+            throw new \RuntimeException(
+                "Store #{$store->id} authorization expired. Please reauthorize from the Dashboard."
+            );
+        }
+
+        if ($this->accessTokenNeedsRefresh($store)) {
+            $this->refreshStoreToken($store);
+            $store->load('token');
+        }
+
+        $accessToken = $this->resolveAccessToken($store);
+        $this->client->setAccessToken((int) $store->shop_id, $accessToken);
+
+        return $this->client;
+    }
+
+    /**
+     * Refresh shop access/refresh tokens via Shopee's RefreshAccessToken API.
+     * Uses a per-shop lock so concurrent callers cannot burn the single-use refresh_token.
+     *
+     * @throws \Exception When refresh fails (failure metadata is recorded on the token row)
+     */
+    public function refreshStoreToken(ShopeeStore $store): void
+    {
+        $store->loadMissing('token');
+
+        if (!$store->token) {
+            throw new \RuntimeException("Store #{$store->id} has no token.");
+        }
+
+        if ($store->token->auth_expires_at->isPast()) {
+            throw new \RuntimeException(
+                "Store #{$store->id} authorization expired. Please reauthorize from the Dashboard."
+            );
+        }
+
+        $lock = Cache::lock("shopee:token-refresh:shop_{$store->shop_id}", 30);
+
+        try {
+            $lock->block(15, function () use ($store) {
+                $store->load('token');
+                $token = $store->token;
+
+                if (!$token) {
+                    throw new \RuntimeException("Store #{$store->id} has no token.");
+                }
+
+                // Another request may have refreshed while we waited for the lock.
+                if (!$this->accessTokenNeedsRefresh($store)) {
+                    return;
+                }
+
+                $token->update(['last_refresh_attempt_at' => now()]);
+
+                try {
+                    $refreshToken = decrypt($token->refresh_token);
+                    $newTokens = $this->auth()->refreshNewToken(
+                        $refreshToken,
+                        $store->shop_id
+                    );
+
+                    $token->update([
+                        'access_token' => encrypt($newTokens['access_token']),
+                        'refresh_token' => encrypt($newTokens['refresh_token']),
+                        'access_token_expires_at' => now()->addSeconds($newTokens['expire_in'] ?? 14400),
+                        'refresh_token_expires_at' => now()->addDays(30),
+                        'last_refreshed_at' => now(),
+                        'last_refresh_failed_at' => null,
+                        'last_refresh_error' => null,
+                        'refresh_failure_count' => 0,
+                    ]);
+
+                    if (!$store->is_active) {
+                        $store->update(['is_active' => true]);
+                    }
+
+                    $this->clearStoreCache($store);
+                    $store->setRelation('token', $token->fresh());
+                } catch (\Exception $e) {
+                    $token->forceFill([
+                        'last_refresh_failed_at' => now(),
+                        'last_refresh_error' => mb_substr($e->getMessage(), 0, 255),
+                    ]);
+                    $token->refresh_failure_count = ((int) $token->refresh_failure_count) + 1;
+                    $token->save();
+                    $this->clearStoreCache($store);
+                    throw $e;
+                }
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            throw new \RuntimeException(
+                "Store #{$store->id} token refresh is already in progress. Please retry.",
+                0,
+                $e
+            );
+        }
+    }
+
+    /**
+     * Whether the store's access token is expired or within the refresh buffer.
+     */
+    public function accessTokenNeedsRefresh(ShopeeStore $store): bool
+    {
+        $store->loadMissing('token');
+
+        if (!$store->token || !$store->token->access_token_expires_at) {
+            return true;
+        }
+
+        return $store->token->access_token_expires_at->lte(
+            now()->addSeconds(self::ACCESS_TOKEN_REFRESH_BUFFER_SECONDS)
+        );
+    }
+
+    /**
+     * Clear cached data for a store (e.g. on token expiry).
+     */
+    public function clearStoreCache(ShopeeStore $store): void
+    {
+        Cache::forget($this->tokenCacheKey($store));
+    }
+
+    /**
+     * Mark a store as inactive due to auth failure and clear its cache.
+     */
+    public function invalidateStore(ShopeeStore $store): void
+    {
+        $this->clearStoreCache($store);
+        $store->update(['is_active' => false]);
+    }
+
+    /**
+     * Get the Auth helper for OAuth operations.
+     */
+    public function auth()
+    {
+        return $this->client->auth();
+    }
+
+    /**
+     * Get the callback URL configured for the app.
+     */
+    public function getRedirectUrl(): string
+    {
+        return config('shopee.redirect_url');
+    }
+
+    /**
+     * Fetch the current holiday / vacation mode status for a store.
+     */
+    public function getHolidayMode(ShopeeStore $store): array
+    {
+        return $this->callWithTokenRetry($store, function (Client $client) {
+            $res = $client->call('GET', 'shop/get_shop_holiday_mode');
+            return is_array($res) && isset($res['response']) ? $res['response'] : (is_array($res) ? $res : []);
+        });
+    }
+
+    /**
+     * Set holiday / vacation mode for a store.
+     */
+    public function setHolidayMode(ShopeeStore $store, bool $enabled, int $modeType = 0): array
+    {
+        return $this->callWithTokenRetry($store, function (Client $client) use ($enabled, $modeType) {
+            $res = $client->call('POST', 'shop/set_shop_holiday_mode', [
+                RequestOptions::JSON => [
+                    'holiday_mode_on' => $enabled,
+                    'holiday_mode_type' => $modeType,
+                ],
+            ]);
+            return is_array($res) && isset($res['response']) ? $res['response'] : (is_array($res) ? $res : []);
+        });
+    }
+
+    /**
+     * Execute a callback using the authenticated store client, with automatic token refresh retry on token errors.
+     */
+    public function callWithTokenRetry(ShopeeStore $store, callable $callback): mixed
+    {
+        $client = $this->forStore($store);
+
+        try {
+            return $callback($client);
+        } catch (AuthorizationException | ShopeeException $e) {
+            if ($e instanceof ShopeeException && !$this->isTokenError($e)) {
+                throw $e;
+            }
+
+            try {
+                $this->clearStoreCache($store);
+                $this->refreshStoreToken($store);
+                $store->unsetRelation('token');
+                $store->load('token');
+                $client = $this->forStore($store);
+
+                return $callback($client);
+            } catch (AuthorizationException | ShopeeException $retryError) {
+                if ($retryError instanceof ShopeeException && !$this->isTokenError($retryError)) {
+                    throw $retryError;
+                }
+                $this->invalidateStore($store);
+                throw new \RuntimeException(
+                    "Store #{$store->id} token expired. Please re-link from the Dashboard. ({$retryError->getMessage()})"
+                );
+            } catch (\Exception $refreshError) {
+                $this->invalidateStore($store);
+                throw new \RuntimeException(
+                    "Store #{$store->id} token expired. Please re-link from the Dashboard. ({$refreshError->getMessage()})"
+                );
+            }
+        }
+    }
+
+    private function isTokenError(ShopeeException $e): bool
+    {
+        $msg = strtolower($e->getMessage());
+
+        return str_contains($msg, 'access_token') || str_contains($msg, 'token expired');
+    }
+
+    private function resolveAccessToken(ShopeeStore $store): string
+    {
+        $token = $store->token;
+        $cacheKey = $this->tokenCacheKey($store);
+        $secondsUntilExpiry = max(
+            1,
+            $token->access_token_expires_at->getTimestamp() - now()->getTimestamp()
+        );
+        $ttlSeconds = min(3600, $secondsUntilExpiry);
+
+        return Cache::remember($cacheKey, $ttlSeconds, function () use ($token) {
+            return decrypt($token->access_token);
+        });
+    }
+
+    private function tokenCacheKey(ShopeeStore $store): string
+    {
+        return "shopee:token:shop_{$store->shop_id}";
+    }
+}

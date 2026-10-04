@@ -1,0 +1,24 @@
+.env
+.env.backup
+.env.production
+.env.test
+.env.test.local
+node_modules
+vendor
+dist
+*.log
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+
+# Deploy secrets
+deploy/deploy.config.json
+test-screenshots/
+*.png
+test-results/
+node_modules/
+
+# Local ngrok tunnel (static domain hostname — never commit)
+ngrok.yml
+ngrok.domain

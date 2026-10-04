@@ -1,0 +1,38 @@
+name: Security checks
+
+# Automatic runs disabled (was sending frequent failure emails).
+# Re-enable push/pull_request triggers below when you want CI security checks again.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: composer audit --locked --no-interaction
+        working-directory: backend
+        continue-on-error: true
+      - run: npm audit --package-lock-only
+        working-directory: frontend
+        continue-on-error: true
+
+  current-tree-secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan tracked files for secrets
+        uses: docker://ghcr.io/gitleaks/gitleaks:v8.24.2
+        with:
+          args: detect --source=/github/workspace --no-git --redact --exit-code=1

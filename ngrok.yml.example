@@ -1,0 +1,13 @@
+# Copy to ngrok.yml (gitignored) and set your free static domain.
+# Claim a domain at: https://dashboard.ngrok.com/domains
+#
+# Then either:
+#   1. Put the hostname alone in ngrok.domain (preferred — used by scripts/start-ngrok.ps1)
+#   2. Or fill domain below and run: ngrok start shopee --config ngrok.yml
+
+version: "2"
+tunnels:
+  shopee:
+    proto: http
+    addr: 8000
+    domain: your-static-name.ngrok-free.app
