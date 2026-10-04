@@ -5,7 +5,7 @@ import '../models/dashboard.dart';
 class HomeScreenWidget {
   static const androidName = 'MyStoresWidgetProvider';
   static const qualifiedAndroidName =
-      'com.melur.shopee_manager.MyStoresWidgetProvider';
+      'oom.mystores.shopee_manager.MyStoresWidgetProvider';
 
   static Future<void> syncFromDashboard(DashboardStats stats) async {
     try {
