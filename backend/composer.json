@@ -47,16 +47,6 @@
             "Composer\\Config::disableProcessTimeout",
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"cd ../frontend && npm run dev\" --names=server,queue,vite --kill-others"
         ],
-        "dev:tunnel": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -r \"echo 'Starting ngrok tunnel (see Docs/NGROK_LOCAL_SETUP.md)...'.PHP_EOL;\"",
-            "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/start-ngrok.ps1"
-        ],
-        "dev:all": [
-            "Composer\\Config::disableProcessTimeout",
-            "@php -r \"echo 'Starting server + queue + vite + ngrok...'.PHP_EOL;\"",
-            "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/start-dev-all.ps1"
-        ],
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"

@@ -18,7 +18,3 @@ test-screenshots/
 *.png
 test-results/
 node_modules/
-
-# Local ngrok tunnel (static domain hostname — never commit)
-ngrok.yml
-ngrok.domain
