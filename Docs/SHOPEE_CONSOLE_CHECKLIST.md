@@ -1,51 +1,47 @@
-# Shopee Partner Console — ngrok callback checklist (sandbox)
+# Shopee Partner Console — Callback & Push Checklist
 
-Do this **once** after you claim your free static domain and put it in `ngrok.domain`.
+This guide covers setting up Redirect / Callback URLs and Push Mechanism (webhooks) in the Shopee Partner Console.
 
-## Production stays as-is
+## Production App (MelurCom)
 
-Do **not** change the production app redirect:
+The production app redirect and push settings:
 
 ```text
 https://mystores.melur.com/api/shopee/callback
+https://mystores.melur.com/api/shopee/webhook
 ```
 
-Deploy continues to use `deploy/.env.production` → no live setting changes.
+Deploy continuously uses `deploy/.env.production` where these values are permanently configured.
 
-## Sandbox app (local linking)
+## Sandbox App (Development / Testing)
 
 1. Open [open.shopee.com](https://open.shopee.com) → your **sandbox** partner app.
 2. Find Redirect URL / Callback URL settings.
-3. Add (replace with your hostname from `ngrok.domain`):
+3. Configure your public HTTPS development callback or sandbox URL:
 
 ```text
-https://optimal-rested-flamingo.ngrok-free.app/api/shopee/callback
+https://<your-public-host>/api/shopee/callback
 ```
 
 4. Save.
-5. Run `composer dev` + `composer dev:tunnel`, then Link Store from `http://localhost:5173`.
-
-If Shopee only allows one redirect URL on the sandbox app, keep the ngrok URL for local linking; production linking uses the separate live app / live redirect on `mystores.melur.com`.
+5. In `backend/.env`, set `SHOPEE_REDIRECT_URL` to match this URL.
 
 ## Push Mechanism (Order Status)
 
 Orders sync primarily via Push, with the 15-minute `shopee:sync-orders` cron as a backup reconcile.
 
 1. In Shopee Open Platform Console → your App → **Push Mechanism** / **Set Push**.
-2. Set the callback URL to (replace with your ngrok or production host):
+2. Set the callback URL to your public webhook endpoint:
 
 ```text
-https://optimal-rested-flamingo.ngrok-free.app/api/shopee/webhook
+https://mystores.melur.com/api/shopee/webhook
 ```
+(or `https://<your-public-host>/api/shopee/webhook` for sandbox)
 
 3. Verify the URL, then subscribe at least to:
    - **Order Status Update (Code 3)** — required for real-time order updates
    - Item Promotion / Reserved Stock pushes (Codes **7** / **8**) if you use stock webhooks
-4. In `backend/.env`, set `SHOPEE_WEBHOOK_URL` to the **exact** same URL you registered in the console (signature verification uses this string):
-
-```text
-SHOPEE_WEBHOOK_URL=https://optimal-rested-flamingo.ngrok-free.app/api/shopee/webhook
-```
+4. In `.env`, set `SHOPEE_WEBHOOK_URL` to the **exact** same URL you registered in the console (signature verification uses this string).
 
 5. Ensure a queue worker is running (`php artisan queue:work` or `composer dev`) so `SyncShopeeOrderJob` can process Code 3 pushes.
 
@@ -53,7 +49,7 @@ SHOPEE_WEBHOOK_URL=https://optimal-rested-flamingo.ngrok-free.app/api/shopee/web
 
 ## Production (live website)
 
-ngrok is only for localhost. On the live site, use the real domain — no tunnel needed.
+On the live site, use the real domain:
 
 1. Use the **live** Shopee app (MelurCom), not the sandbox app.
 2. In its Push Mechanism settings, set the callback URL to:

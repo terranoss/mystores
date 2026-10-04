@@ -301,15 +301,7 @@ stores/
 ├── Docs/                        # Project documentation
 │   ├── PROJECT_PHASES.md                        # Development phase tracker
 │   ├── AUDIT_REPORT.md                          # Full security audit
-│   ├── COMPLETION_AUDIT.md                      # Remediation verification
-│   ├── NGROK_LOCAL_SETUP.md                     # Local OAuth via ngrok
 │   └── phase_3_improvements_plan.md
-│
-├── scripts/
-│   ├── start-ngrok.ps1                          # Sync local .env + start ngrok tunnel
-│   └── start-dev-all.ps1                        # Laravel + queue + Vite + ngrok
-├── ngrok.domain.example                         # Template for static ngrok hostname
-├── ngrok.yml.example                            # Optional ngrok tunnel config template
 │
 ├── .env.test.example             # E2E test environment template
 ├── e2e-stock-flow.spec.ts       # Playwright E2E test (stock flow)
@@ -399,8 +391,6 @@ DB_CONNECTION=sqlite
 
 SHOPEE_PARTNER_ID=your_partner_id
 SHOPEE_PARTNER_KEY=your_partner_key
-# Localhost alone cannot receive Shopee OAuth callbacks — use ngrok for linking stores.
-# See Docs/NGROK_LOCAL_SETUP.md. Production uses deploy/.env.production (untouched).
 SHOPEE_REDIRECT_URL=http://localhost:8000/api/shopee/callback
 SHOPEE_SANDBOX=true
 ```
@@ -424,32 +414,12 @@ php artisan serve
 php artisan queue:work --tries=1 --timeout=0
 ```
 
-Or use the combined scripts:
+Or run the entire app stack (Laravel + queue + Vite) together:
 
 ```bash
-# App only (Laravel + queue + Vite) — no ngrok
+cd backend
 composer dev
-
-# Everything including ngrok (needed to Link Store locally)
-composer dev:all
 ```
-
-`composer dev:all` syncs local `SHOPEE_REDIRECT_URL` from `ngrok.domain`, then runs server, queue, Vite, and ngrok together.
-
-### 4b. Link a Shopee store on localhost (ngrok)
-
-Shopee must redirect to a **public** HTTPS URL. Production keeps `https://mystores.melur.com/api/shopee/callback` in `deploy/.env.production` (deploy uploads that file — no live setting changes). Local linking uses a free ngrok **static** domain:
-
-```bash
-# One-time: claim domain at https://dashboard.ngrok.com/domains
-cp ngrok.domain.example ngrok.domain
-# Edit ngrok.domain with your hostname only
-
-# One command: Laravel + queue + Vite + ngrok
-cd backend && composer dev:all
-```
-
-Then register `https://<your-domain>/api/shopee/callback` in the **sandbox** Shopee Partner Console. Full steps: [`Docs/NGROK_LOCAL_SETUP.md`](Docs/NGROK_LOCAL_SETUP.md).
 
 ### 5. Run Scheduled Tasks Locally
 
@@ -697,7 +667,7 @@ E2E tests cover the full stock editing flow: login → navigate to stock → edi
 | `QUEUE_CONNECTION` | `database` | Queue driver |
 | `SHOPEE_PARTNER_ID` | — | Shopee Open Platform Partner ID |
 | `SHOPEE_PARTNER_KEY` | — | Shopee Open Platform Partner Key |
-| `SHOPEE_REDIRECT_URL` | `http://localhost:8000/api/shopee/callback` | OAuth callback URL (local: use ngrok static domain; production: `https://mystores.melur.com/api/shopee/callback`) |
+| `SHOPEE_REDIRECT_URL` | `http://localhost:8000/api/shopee/callback` | OAuth callback URL (production: `https://mystores.melur.com/api/shopee/callback`) |
 | `SHOPEE_SANDBOX` | `true` | Use Shopee sandbox environment |
 
 ### `config/cors.php`
@@ -764,7 +734,7 @@ MIT — see [LICENSE](LICENSE) for details.
 
 ## Related Documentation
 
-- [`Docs/NGROK_LOCAL_SETUP.md`](Docs/NGROK_LOCAL_SETUP.md) — Local Shopee OAuth via ngrok (production untouched)
+- [`Docs/SHOPEE_CONSOLE_CHECKLIST.md`](Docs/SHOPEE_CONSOLE_CHECKLIST.md) — Shopee console callback & webhook setup
 - [`Docs/AUDIT_REPORT.md`](Docs/AUDIT_REPORT.md) — Full security audit with findings, severity, and remediation plan
 - [`Docs/COMPLETION_AUDIT.md`](Docs/COMPLETION_AUDIT.md) — Verification of all security remediation work
 - [`Docs/PROJECT_PHASES.md`](Docs/PROJECT_PHASES.md) — Full development phase tracker with task status
