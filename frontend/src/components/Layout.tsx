@@ -9,9 +9,15 @@ import { APP_VERSION } from '../version';
 
 const NAV = [
   { label: 'Dashboard', path: '/dashboard', icon: '◉' },
-  { label: 'Today Pick List', path: '/pick-list/today', icon: '☑' },
-  { label: 'Pending Pick List', path: '/pick-list/pending', icon: '☐' },
-  { label: 'Orders', path: '/orders', icon: '◈' },
+  { 
+    label: 'Orders', 
+    path: '/orders', 
+    icon: '◈',
+    children: [
+      { label: 'Today Pick List', path: '/pick-list/today', icon: '☑' },
+      { label: 'Pending Pick List', path: '/pick-list/pending', icon: '☐' },
+    ]
+  },
   { label: 'Stock', path: '/stock', icon: '◇' },
   { label: 'Promotions', path: '/promotions', icon: '✧' },
   { label: 'Team', path: '/team', icon: '◎' },
@@ -69,6 +75,62 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {/* Nav */}
           <nav className="flex-1 px-3 py-6 space-y-1">
             {NAV.map((item) => {
+              if (item.children) {
+                // Parent menu with submenu
+                const isParentActive = item.children.some(
+                  (child) => location.pathname === child.path
+                );
+                const isOpen = isParentActive; // Auto-open when child is active
+                
+                return (
+                  <div key={item.path} className="space-y-1">
+                    <Link
+                      to={item.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        isParentActive
+                          ? 'bg-clay-500/15 text-clay-400 shadow-inner'
+                          : 'text-ink-300 hover:text-white hover:bg-ink-800/50'
+                      }`}
+                    >
+                      <span className="text-lg">{item.icon}</span>
+                      {item.label}
+                      {item.label === 'Orders' && pendingCount > 0 && (
+                        <span
+                          title="Pending orders needing attention: Unpaid, Ready to ship, and Processed"
+                          className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5"
+                        >
+                          {pendingCount > 99 ? '99+' : pendingCount}
+                        </span>
+                      )}
+                    </Link>
+                    {isOpen && (
+                      <div className="pl-10 space-y-0.5 animate-slideDown">
+                        {item.children.map((child) => {
+                          const isActive = location.pathname === child.path;
+                          return (
+                            <Link
+                              key={child.path}
+                              to={child.path}
+                              onClick={() => setSidebarOpen(false)}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                                isActive
+                                  ? 'bg-clay-500/10 text-clay-400'
+                                  : 'text-ink-400 hover:text-white hover:bg-ink-800/50'
+                              }`}
+                            >
+                              <span className="text-base">{child.icon}</span>
+                              {child.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              
+              // Regular menu item
               const isActive =
                 location.pathname === item.path ||
                 (item.path.startsWith('/pick-list/') && location.pathname === item.path);

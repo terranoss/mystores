@@ -222,19 +222,23 @@ class _AppDrawer extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Divider(),
-            ListTile(
-              leading: const Icon(Icons.today_rounded,
-                  color: AppColors.accent),
-              title: const Text('Orders Today'),
-              subtitle: const Text('Orders placed today'),
-              onTap: () => _go(context, '/pick-list/today'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.pending_actions_rounded,
-                  color: AppColors.accent),
-              title: const Text('Pending Orders'),
-              subtitle: const Text('Awaiting fulfillment'),
-              onTap: () => _go(context, '/pick-list/pending'),
+            ExpansionTile(
+              leading: const Icon(Icons.receipt_long_outlined, color: AppColors.accent),
+              title: const Text('Orders'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.today_rounded, color: AppColors.accent),
+                  title: const Text('Today Pick List'),
+                  subtitle: const Text('Orders placed today'),
+                  onTap: () => _go(context, '/pick-list/today'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.pending_actions_rounded, color: AppColors.accent),
+                  title: const Text('Pending Pick List'),
+                  subtitle: const Text('Awaiting fulfillment'),
+                  onTap: () => _go(context, '/pick-list/pending'),
+                ),
+              ],
             ),
             const Spacer(),
             const Divider(height: 1),
