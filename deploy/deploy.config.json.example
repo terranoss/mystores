@@ -1,0 +1,20 @@
+{
+  "ssh": {
+    "host": "103.10.78.60",
+    "username": "melurcom",
+    "port": 55000,
+    "key_path": "D:/GitHub/MelurApp/Docs/melurcom",
+    "use_password": false,
+    "password_or_passphrase": ""
+  },
+  "github": {
+    "repo": "https://github.com/terranoss/stores.git",
+    "branch": "main"
+  },
+  "server": {
+    "deploy_path": "/home/melurcom/mystores.melur.com/",
+    "php_binary": "php",
+    "composer_binary": "composer"
+  },
+  "first_deploy": true
+}

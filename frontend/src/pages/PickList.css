@@ -1,0 +1,441 @@
+/* Printout-style pick list — screen + print */
+
+.picklist-page {
+  max-width: 960px;
+  margin: 0 auto;
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.picklist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.picklist-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.picklist-btn {
+  background: #111827;
+  color: #fff;
+  border: none;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.picklist-btn:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.picklist-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.picklist-btn-secondary {
+  background: #fff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+
+.picklist-btn-secondary:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.picklist-btn-danger {
+  background: #dc2626;
+  color: #fff;
+}
+
+.picklist-btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.picklist-sheet {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px 18px 24px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.picklist-header-bar {
+  border-bottom: 2px solid #111827;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.picklist-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  text-transform: uppercase;
+}
+
+.picklist-meta {
+  font-size: 11px;
+  color: #374151;
+}
+
+.picklist-meta strong {
+  color: #111827;
+}
+
+.picklist-progress {
+  margin: 8px 0 14px;
+}
+
+.picklist-progress-bar {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.picklist-progress-fill {
+  height: 100%;
+  background: #16a34a;
+  transition: width 0.2s ease;
+}
+
+.picklist-section-header {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 14px 0 6px;
+  padding-bottom: 3px;
+  border-bottom: 1.5px solid #111827;
+}
+
+.picklist-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.picklist-table th {
+  border-bottom: 1.5px solid #111827;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #374151;
+}
+
+.picklist-table td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 8px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.picklist-table tr.is-picked td {
+  background: #f0fdf4;
+}
+
+.picklist-table tr.is-picked .picklist-item-name {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+.picklist-table tr.is-busy {
+  opacity: 0.6;
+}
+
+.picklist-check-col {
+  width: 40px;
+  text-align: center;
+}
+
+.picklist-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid #374151;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #fff;
+  padding: 0;
+}
+
+.picklist-checkbox.is-checked {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.picklist-qty-col {
+  width: 56px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.picklist-sku-col {
+  width: 110px;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: #374151;
+}
+
+.picklist-actions-col {
+  width: 120px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.picklist-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  margin-right: 3px;
+  text-transform: uppercase;
+  border: 1px solid #d1d5db;
+}
+
+.picklist-badge-shopee {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.picklist-badge-lazada {
+  color: #2563eb;
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.picklist-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+}
+
+.picklist-icon-btn {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 4px;
+  position: relative;
+}
+
+.picklist-icon-btn:hover {
+  background: #f3f4f6;
+}
+
+.picklist-icon-btn.has-unread {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.picklist-unread-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #dc2626;
+  border: 1.5px solid #fff;
+}
+
+.picklist-order-row {
+  border-bottom: 1px dashed #d1d5db;
+  padding: 6px 0;
+  break-inside: avoid;
+}
+
+.picklist-order-meta {
+  font-weight: 600;
+  font-size: 11px;
+  margin-bottom: 3px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.picklist-order-items {
+  padding-left: 10px;
+  font-size: 11px;
+  color: #374151;
+}
+
+.picklist-empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 20px;
+}
+
+.picklist-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+/* Detail drawer */
+.picklist-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  z-index: 40;
+}
+
+.picklist-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 100vw);
+  height: 100vh;
+  background: #fff;
+  z-index: 50;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+}
+
+.picklist-drawer-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.picklist-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
+}
+
+.picklist-drawer-photo {
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.picklist-comment {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.picklist-comment-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.picklist-comment-body {
+  font-size: 13px;
+  color: #374151;
+  white-space: pre-wrap;
+}
+
+.picklist-composer {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.picklist-composer textarea {
+  flex: 1;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 40px;
+}
+
+.picklist-hidden-file {
+  display: none;
+}
+
+@media print {
+  .picklist-no-print,
+  .picklist-toolbar,
+  .picklist-drawer-backdrop,
+  .picklist-drawer,
+  .picklist-actions-col,
+  .picklist-icon-btn {
+    display: none !important;
+  }
+
+  .picklist-page {
+    max-width: none;
+    font-size: 11px;
+  }
+
+  .picklist-sheet {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .picklist-checkbox {
+    width: 13px;
+    height: 13px;
+    cursor: default;
+  }
+
+  .picklist-thumb {
+    width: 28px;
+    height: 28px;
+  }
+
+  @page {
+    size: A4;
+    margin: 10mm 12mm;
+  }
+}
