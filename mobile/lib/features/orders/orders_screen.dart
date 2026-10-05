@@ -432,69 +432,12 @@ class _OrderTile extends StatelessWidget {
 
 // ── Order detail bottom sheet ─────────────────────────────────
 
-class _OrderDetailSheet extends ConsumerWidget {
+class _OrderDetailSheet extends StatelessWidget {
   final Order order;
   const _OrderDetailSheet({required this.order});
 
-  Future<void> _openPosItem(
-    BuildContext context,
-    WidgetRef ref,
-    OrderItem item,
-  ) async {
-    final sku = item.sku?.trim() ?? '';
-    if (sku.isEmpty) {
-      AppSnackbar.show(
-        context,
-        'This item has no SKU linked to POS inventory.',
-        success: false,
-      );
-      return;
-    }
-
-    // Show lightweight progress dialog
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(AppColors.accent),
-        ),
-      ),
-    );
-
-    PosInventoryItem? posItem;
-    try {
-      posItem = await ref.read(posStockProvider.notifier).fetchItemBySku(sku);
-    } finally {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-    }
-
-    if (!context.mounted) return;
-
-    if (posItem == null) {
-      AppSnackbar.show(
-        context,
-        'No POS inventory item found matching SKU: $sku',
-        success: false,
-      );
-      return;
-    }
-
-    await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => UpdateStockSheet(item: posItem!),
-    );
-  }
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final canCancel = !['COMPLETED', 'CANCELLED'].contains(order.orderStatus);
     return DraggableScrollableSheet(
       initialChildSize: 0.65,
@@ -561,124 +504,81 @@ class _OrderDetailSheet extends ConsumerWidget {
                       _formatCancelReason(order.cancelReason),
                     ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Text('Items',
-                          style:
-                              Theme.of(context).textTheme.titleSmall),
-                      const Spacer(),
-                      Text(
-                        'Tap item to view POS stock',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textMuted,
-                              fontSize: 11,
-                            ),
-                      ),
-                    ],
-                  ),
+                  Text('Items',
+                      style:
+                          Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   ...order.items.map(
-                    (item) => Material(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        onTap: () => _openPosItem(context, ref, item),
+                    (item) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
                         borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 0),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.itemName ?? '(no name)',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 8,
+                                  crossAxisAlignment:
+                                      WrapCrossAlignment.center,
                                   children: [
+                                    if (item.sku != null &&
+                                        item.sku!.trim().isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceVariant,
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          border: Border.all(
+                                              color: AppColors.border),
+                                        ),
+                                        child: Text(
+                                          item.sku!.trim(),
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.accent,
+                                          ),
+                                        ),
+                                      ),
                                     Text(
-                                      item.itemName ?? '(no name)',
+                                      'RM ${item.price.toStringAsFixed(2)}',
                                       style: Theme.of(context)
                                           .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Wrap(
-                                      spacing: 8,
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      children: [
-                                        if (item.sku != null &&
-                                            item.sku!.trim().isNotEmpty)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.surfaceVariant,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              border: Border.all(
-                                                  color: AppColors.border),
-                                            ),
-                                            child: Text(
-                                              item.sku!.trim(),
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.accent,
-                                              ),
-                                            ),
-                                          ),
-                                        Text(
-                                          'RM ${item.price.toStringAsFixed(2)}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
-                                        ),
-                                      ],
+                                          .bodySmall,
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text('×${item.quantity}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: 2),
-                                  const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'POS',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.accent,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 16,
-                                        color: AppColors.accent,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Text('×${item.quantity}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(
+                                      fontWeight: FontWeight.w700)),
+                        ],
                       ),
                     ),
                   ),
