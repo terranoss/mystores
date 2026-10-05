@@ -1178,3 +1178,32 @@ export async function mutateLazadaVoucherSkus(
   const res = await api.post(`/lazada/promotions/vouchers/${id}/skus`, payload);
   return res.data.result;
 }
+
+// ── Workspace Credentials API ──────────────────────────────────
+
+export interface WorkspaceCredentials {
+  id: number;
+  workspace_id: number;
+  partner_id?: string | null;
+  partner_key?: string | null;
+  push_partner_key?: string | null;
+  app_key?: string | null;
+  app_secret?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getWorkspaceCredentials(): Promise<WorkspaceCredentials | null> {
+  const res = await api.get('/workspace/credentials');
+  // API returns null if no credentials exist
+  return res.data ?? null;
+}
+
+export async function updateWorkspaceCredentials(data: Partial<Omit<WorkspaceCredentials, 'id' | 'workspace_id' | 'created_at' | 'updated_at'>>): Promise<WorkspaceCredentials> {
+  const res = await api.put('/workspace/credentials', data);
+  return res.data;
+}
+
+export async function deleteWorkspaceCredentials(): Promise<void> {
+  await api.delete('/workspace/credentials');
+}

@@ -32,4 +32,9 @@ class Workspace extends Model
     {
         return $this->hasMany(ShopeeStore::class);
     }
+
+    public function credentials(): HasMany
+    {
+        return $this->hasMany(WorkspaceCredential::class);
+    }
 }

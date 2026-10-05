@@ -7,21 +7,30 @@ import StoreSwitcher from './StoreSwitcher';
 import NotificationBell from './NotificationBell';
 import { APP_VERSION } from '../version';
 
-const NAV = [
-  { label: 'Dashboard', path: '/dashboard', icon: '◉' },
-  { 
-    label: 'Orders', 
-    path: '/orders', 
-    icon: '◈',
-    children: [
-      { label: 'Today Pick List', path: '/pick-list/today', icon: '☑' },
-      { label: 'Pending Pick List', path: '/pick-list/pending', icon: '☐' },
-    ]
-  },
-  { label: 'Stock', path: '/stock', icon: '◇' },
-  { label: 'Promotions', path: '/promotions', icon: '✧' },
-  { label: 'Team', path: '/team', icon: '◎' },
-];
+const getNavItems = (userRole: string | null) => {
+  const baseNav = [
+    { label: 'Dashboard', path: '/dashboard', icon: '◉' },
+    { 
+      label: 'Orders', 
+      path: '/orders', 
+      icon: '◈',
+      children: [
+        { label: 'Today Pick List', path: '/pick-list/today', icon: '☑' },
+        { label: 'Pending Pick List', path: '/pick-list/pending', icon: '☐' },
+      ]
+    },
+    { label: 'Stock', path: '/stock', icon: '◇' },
+    { label: 'Promotions', path: '/promotions', icon: '✧' },
+    { label: 'Team', path: '/team', icon: '◎' },
+  ];
+
+  // Add Settings for owners only
+  if (userRole === 'owner') {
+    return [...baseNav, { label: 'Settings', path: '/settings', icon: '⚙' }];
+  }
+
+  return baseNav;
+};
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -30,6 +39,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
+  const navItems = getNavItems(user?.workspace_role ?? null);
 
   // Poll for pending order count every 60s
   useEffect(() => {
@@ -75,7 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Nav */}
           <nav className="flex-1 px-3 py-6 space-y-1">
-            {NAV.map((item) => {
+            {navItems.map((item) => {
               if (item.children) {
                 // Parent menu with submenu
                 const isParentActive = item.children.some(
@@ -174,7 +184,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
-
+            
             {/* Version below menu */}
             <div className="pt-2 px-4">
               <span className="text-[11px] text-ink-500 font-medium tracking-wide">

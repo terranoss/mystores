@@ -55,6 +55,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/workspace/invites/accept', [WorkspaceController::class, 'acceptInvite'])->middleware('throttle:mutation');
     Route::delete('/workspace/members/{memberId}', [WorkspaceController::class, 'removeMember'])->middleware('throttle:mutation');
 
+    // Workspace credentials (owner only)
+    Route::get('/workspace/credentials', [WorkspaceCredentialController::class, 'show']);
+    Route::put('/workspace/credentials', [WorkspaceCredentialController::class, 'update'])->middleware('throttle:mutation');
+    Route::delete('/workspace/credentials', [WorkspaceCredentialController::class, 'destroy'])->middleware('throttle:mutation');
+
     // Shopee store management
     Route::get('/shopee/auth-url', [ShopeeAuthController::class, 'authUrl'])->middleware('throttle:oauth');
     Route::get('/shopee/stores', [ShopeeAuthController::class, 'stores']);

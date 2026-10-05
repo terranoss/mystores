@@ -6,6 +6,8 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Services\WorkspaceAccess;
+use App\Services\WorkspaceConfig;
 
 class LazadaService
 {
@@ -20,26 +22,96 @@ class LazadaService
         'cb' => 'https://api.lazada.sg/rest',
     ];
 
+    private WorkspaceAccess $workspaceAccess;
+    private WorkspaceConfig $workspaceConfig;
+
+    /**
+     * @param WorkspaceAccess $workspaceAccess
+     * @param WorkspaceConfig $workspaceConfig
+     */
+    public function __construct(
+        WorkspaceAccess $workspaceAccess,
+        WorkspaceConfig $workspaceConfig
+    ) {
+        $this->workspaceAccess = $workspaceAccess;
+        $this->workspaceConfig = $workspaceConfig;
+    }
+
+    /**
+     * Get the current user's workspace ID
+     */
+    private function getCurrentWorkspaceId(): ?int
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return null;
+        }
+
+        $workspace = $this->workspaceAccess->ensurePersonalWorkspace($user);
+        return $workspace->id;
+    }
+
+    /**
+     * Get Lazada configuration for the current user's workspace
+     */
+    private function getCurrentWorkspaceLazadaConfig(): array
+    {
+        $workspaceId = $this->getCurrentWorkspaceId();
+        if ($workspaceId) {
+            return $this->workspaceConfig->getLazadaConfig($workspaceId);
+        }
+
+        // Fallback to global config
+        return [
+            'app_key' => config('lazada.app_key'),
+            'app_secret' => config('lazada.app_secret'),
+            'redirect_url' => config('lazada.redirect_url', 'https://mystores.melur.com/api/lazada/callback'),
+            'sandbox' => config('lazada.sandbox', false),
+        ];
+    }
+
+    /**
+     * Get Lazada configuration for a specific workspace
+     */
+    private function getWorkspaceLazadaConfig(int $workspaceId): array
+    {
+        if ($workspaceId) {
+            return $this->workspaceConfig->getLazadaConfig($workspaceId);
+        }
+
+        // Fallback to global config
+        return [
+            'app_key' => config('lazada.app_key'),
+            'app_secret' => config('lazada.app_secret'),
+            'redirect_url' => config('lazada.redirect_url', 'https://mystores.melur.com/api/lazada/callback'),
+            'sandbox' => config('lazada.sandbox', false),
+        ];
+    }
+
     public function getAppKey(): string
     {
-        return $this->requireConfigValue('app_key');
+        $config = $this->getCurrentWorkspaceLazadaConfig();
+        return $config['app_key'];
     }
 
     public function getRedirectUrl(): string
     {
-        return (string) config('lazada.redirect_url', 'https://mystores.melur.com/api/lazada/callback');
+        $config = $this->getCurrentWorkspaceLazadaConfig();
+        return (string) $config['redirect_url'];
     }
 
     private function getAppSecret(): string
     {
-        return $this->requireConfigValue('app_secret');
+        $config = $this->getCurrentWorkspaceLazadaConfig();
+        return $config['app_secret'];
     }
 
     private function requireConfigValue(string $key): string
     {
-        $value = trim((string) config("lazada.{$key}"));
+        $config = $this->getCurrentWorkspaceLazadaConfig();
+        $value = trim((string) ($config[$key] ?? ''));
         if ($value === '') {
-            throw new \RuntimeException("Missing Lazada configuration: lazada.{$key}. Set the corresponding LAZADA_" . strtoupper($key) . " environment variable.");
+            throw new \RuntimeException("Missing Lazada configuration: lazada.{$key}. Set the corresponding LAZADA_" . strtoupper($key) . " environment variable or configure in Dashboard Settings.");
         }
 
         return $value;
