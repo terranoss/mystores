@@ -174,10 +174,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+
+            {/* Version below menu */}
+            <div className="pt-2 px-4">
+              <span className="text-[11px] text-ink-500 font-medium tracking-wide">
+                v{APP_VERSION}
+              </span>
+            </div>
           </nav>
 
-          {/* User info + version at bottom */}
-          <div className="px-3 py-4 border-t border-ink-800 space-y-3">
+          {/* User info at bottom */}
+          <div className="px-3 py-4 border-t border-ink-800">
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-ink-900/50">
               <div className="w-8 h-8 rounded-full bg-clay-600 flex items-center justify-center text-white text-xs font-bold">
                 {user?.name?.charAt(0)?.toUpperCase() || '?'}
@@ -192,9 +199,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 )}
               </div>
             </div>
-            <p className="px-4 text-[11px] text-ink-500 font-medium tracking-wide">
-              v{APP_VERSION}
-            </p>
           </div>
         </div>
       </aside>
