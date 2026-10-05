@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\ShopeeStore;
+use App\Models\Workspace;
 use EcomPHP\Shopee\Client;
 use EcomPHP\Shopee\Errors\AuthorizationException;
 use EcomPHP\Shopee\Errors\ShopeeException;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use App\Services\WorkspaceAccess;
 
 class ShopeeService
 {
@@ -15,18 +18,114 @@ class ShopeeService
     public const ACCESS_TOKEN_REFRESH_BUFFER_SECONDS = 1800;
 
     private Client $client;
+    private WorkspaceAccess $workspaceAccess;
+    private WorkspaceConfig $workspaceConfig;
 
-    public function __construct()
-    {
-        $partnerId = config('shopee.partner_id');
-        $partnerKey = config('shopee.partner_key');
-
-        $this->client = new Client($partnerId, $partnerKey, [
-            'timeout' => 30,
-        ]);
+    /**
+     * @param WorkspaceAccess $workspaceAccess
+     * @param WorkspaceConfig $workspaceConfig
+     */
+    public function __construct(
+        WorkspaceAccess $workspaceAccess,
+        WorkspaceConfig $workspaceConfig
+    ) {
+        $this->workspaceAccess = $workspaceAccess;
+        $this->workspaceConfig = $workspaceConfig;
+        
+        // Initialize client with default config (will be updated per workspace as needed)
+        $this->client = new Client(
+            config('shopee.partner_id'),
+            config('shopee.partner_key'),
+            ['timeout' => 30]
+        );
 
         if (config('shopee.sandbox')) {
             $this->client->useDebugMode();
+        }
+    }
+
+    /**
+     * Get the current user's workspace ID
+     */
+    private function getCurrentWorkspaceId(): ?int
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return null;
+        }
+
+        $workspace = $this->workspaceAccess->ensurePersonalWorkspace($user);
+        return $workspace->id;
+    }
+
+    /**
+     * Get Shopee configuration for the current user's workspace
+     */
+    private function getCurrentWorkspaceShopeeConfig(): array
+    {
+        $workspaceId = $this->getCurrentWorkspaceId();
+        if ($workspaceId) {
+            return $this->workspaceConfig->getShopeeConfig($workspaceId);
+        }
+
+        // Fallback to global config
+        return [
+            'partner_id' => config('shopee.partner_id'),
+            'partner_key' => config('shopee.partner_key'),
+            'push_partner_key' => config('shopee.push_partner_key'),
+            'redirect_url' => config('shopee.redirect_url'),
+            'webhook_url' => config('shopee.webhook_url'),
+            'sandbox' => config('shopee.sandbox', true),
+        ];
+    }
+
+    /**
+     * Get Shopee configuration for a specific workspace
+     */
+    private function getWorkspaceShopeeConfig(int $workspaceId): array
+    {
+        if ($workspaceId) {
+            return $this->workspaceConfig->getShopeeConfig($workspaceId);
+        }
+
+        // Fallback to global config
+        return [
+            'partner_id' => config('shopee.partner_id'),
+            'partner_key' => config('shopee.partner_key'),
+            'push_partner_key' => config('shopee.push_partner_key'),
+            'redirect_url' => config('shopee.redirect_url'),
+            'webhook_url' => config('shopee.webhook_url'),
+            'sandbox' => config('shopee.sandbox', true),
+        ];
+    }
+
+    /**
+     * Configure the client for a specific workspace
+     */
+    private function configureClientForWorkspace(int $workspaceId): void
+    {
+        $config = $this->getWorkspaceShopeeConfig($workspaceId);
+        
+        // Recreate the client with workspace-specific credentials
+        $this->client = new Client(
+            $config['partner_id'],
+            $config['partner_key'],
+            ['timeout' => 30]
+        );
+
+        if ($config['sandbox']) {
+            $this->client->useDebugMode();
+        }
+    }
+
+    /**
+     * Configure the client for the current user's workspace
+     */
+    private function configureClientForCurrentWorkspace(): void
+    {
+        $workspaceId = $this->getCurrentWorkspaceId();
+        if ($workspaceId) {
+            $this->configureClientForWorkspace($workspaceId);
         }
     }
 
@@ -35,6 +134,7 @@ class ShopeeService
      */
     public function client(): Client
     {
+        $this->configureClientForCurrentWorkspace();
         return $this->client;
     }
 
@@ -55,6 +155,9 @@ class ShopeeService
                 "Store #{$store->id} authorization expired. Please reauthorize from the Dashboard."
             );
         }
+
+        // Configure client for this store's workspace
+        $this->configureClientForWorkspace($store->workspace_id);
 
         if ($this->accessTokenNeedsRefresh($store)) {
             $this->refreshStoreToken($store);
@@ -115,12 +218,12 @@ class ShopeeService
                     $token->update([
                         'access_token' => encrypt($newTokens['access_token']),
                         'refresh_token' => encrypt($newTokens['refresh_token']),
-                        'access_token_expires_at' => now()->addSeconds($newTokens['expire_in'] ?? 14400),
-                        'refresh_token_expires_at' => now()->addDays(30),
-                        'last_refreshed_at' => now(),
-                        'last_refresh_failed_at' => null,
-                        'last_refresh_error' => null,
-                        'refresh_failure_count' => 0,
+                        'access_token_expires_at' = now()->addSeconds($newTokens['expire_in'] ?? 14400),
+                        'refresh_token_expires_at' = now()->addDays(30),
+                        'last_refreshed_at' = now(),
+                        'last_refresh_failed_at' = null,
+                        'last_refresh_error' = null,
+                        'refresh_failure_count' = 0,
                     ]);
 
                     if (!$store->is_active) {
@@ -131,8 +234,8 @@ class ShopeeService
                     $store->setRelation('token', $token->fresh());
                 } catch (\Exception $e) {
                     $token->forceFill([
-                        'last_refresh_failed_at' => now(),
-                        'last_refresh_error' => mb_substr($e->getMessage(), 0, 255),
+                        'last_refresh_failed_at' = now(),
+                        'last_refresh_error' = mb_substr($e->getMessage(), 0, 255),
                     ]);
                     $token->refresh_failure_count = ((int) $token->refresh_failure_count) + 1;
                     $token->save();
@@ -187,6 +290,7 @@ class ShopeeService
      */
     public function auth()
     {
+        $this->configureClientForCurrentWorkspace();
         return $this->client->auth();
     }
 
@@ -195,6 +299,16 @@ class ShopeeService
      */
     public function getRedirectUrl(): string
     {
+        $this->configureClientForCurrentWorkspace();
+        // Return the redirect URL from the client's config (which is now workspace-specific)
+        // But we need to extract it from the client or get it from config directly
+        // Let's get it from the workspace config instead
+        $workspaceId = $this->getCurrentWorkspaceId();
+        if ($workspaceId) {
+            $config = $this->workspaceConfig->getShopeeConfig($workspaceId);
+            return $config['redirect_url'] ?? config('shopee.redirect_url');
+        }
+
         return config('shopee.redirect_url');
     }
 
@@ -218,7 +332,7 @@ class ShopeeService
             $res = $client->call('POST', 'shop/set_shop_holiday_mode', [
                 RequestOptions::JSON => [
                     'holiday_mode_on' => $enabled,
-                    'holiday_mode_type' => $modeType,
+                    'holiday_mode_type' = $modeType,
                 ],
             ]);
             return is_array($res) && isset($res['response']) ? $res['response'] : (is_array($res) ? $res : []);
