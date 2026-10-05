@@ -9,6 +9,7 @@ use App\Models\ShopeeToken;
 use App\Services\ShopeeService;
 use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceActivityLogger;
+use App\Services\WorkspaceConfig;
 use EcomPHP\Shopee\Errors\ShopeeException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,7 @@ class ShopeeAuthController extends Controller
         private readonly ShopeeService $shopee,
         private readonly WorkspaceAccess $workspaceAccess,
         private readonly WorkspaceActivityLogger $activityLogger,
+        private readonly WorkspaceConfig $workspaceConfig,
     ) {}
 
     /**
@@ -49,19 +51,20 @@ class ShopeeAuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        $partnerId = (int) config('shopee.partner_id');
-        $partnerKey = config('shopee.partner_key');
+        $config = $this->workspaceConfig->getShopeeConfig($owned->id);
+        $partnerId = (int) $config['partner_id'];
+        $partnerKey = $config['partner_key'];
         $timestamp = time();
         $path = '/api/v2/shop/auth_partner';
 
         // Append state directly as a query parameter in the redirect URL
         // Shopee strips custom top-level query parameters but preserves query parameters inside the redirect URL
-        $redirectUrl = $this->shopee->getRedirectUrl().'?state='.urlencode($state);
+        $redirectUrl = ($config['redirect_url'] ?: $this->shopee->getRedirectUrl()).'?state='.urlencode($state);
 
         $baseString = $partnerId.$path.$timestamp;
         $sign = hash_hmac('sha256', $baseString, $partnerKey);
 
-        $host = config('shopee.sandbox')
+        $host = !empty($config['sandbox'])
             ? 'https://openplatform.sandbox.test-stable.shopee.sg'
             : 'https://partner.shopeemobile.com';
 
@@ -126,12 +129,17 @@ class ShopeeAuthController extends Controller
             }
 
             $user = $oauthState->user()->firstOrFail();
+            $workspaceId = $oauthState->store_id
+                ? ShopeeStore::where('id', $oauthState->store_id)->value('workspace_id')
+                : $this->workspaceAccess->ensurePersonalWorkspace($user)->id;
 
-            // Exchange code for tokens
-            $tokens = $this->shopee->auth()->getToken(
-                $validated['code'],
-                $validated['shop_id']
-            );
+            // Exchange code for tokens using workspace credentials
+            $tokens = $this->shopee->withWorkspace($workspaceId, function () use ($validated) {
+                return $this->shopee->auth()->getToken(
+                    $validated['code'],
+                    $validated['shop_id']
+                );
+            });
 
             if (! empty($tokens['error'])) {
                 throw new \Exception('Shopee error: '.($tokens['message'] ?? $tokens['error']));
@@ -150,11 +158,13 @@ class ShopeeAuthController extends Controller
             $shopName = null;
             $region = null;
             try {
-                $this->shopee->client()->setAccessToken(
-                    $validated['shop_id'],
-                    $tokens['access_token']
-                );
-                $shopInfo = $this->shopee->client()->Shop->getShopInfo();
+                $shopInfo = $this->shopee->withWorkspace($workspaceId, function () use ($validated, $tokens) {
+                    $this->shopee->client()->setAccessToken(
+                        $validated['shop_id'],
+                        $tokens['access_token']
+                    );
+                    return $this->shopee->client()->Shop->getShopInfo();
+                });
                 $shopName = $shopInfo['shop_name'] ?? null;
                 $region = $shopInfo['region'] ?? null;
             } catch (\Exception) {
@@ -307,20 +317,21 @@ class ShopeeAuthController extends Controller
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        $partnerId = (int) config('shopee.partner_id');
-        $partnerKey = config('shopee.partner_key');
+        $config = $this->workspaceConfig->getShopeeConfig($store->workspace_id);
+        $partnerId = (int) $config['partner_id'];
+        $partnerKey = $config['partner_key'];
         $timestamp = time();
         $path = '/api/v2/shop/auth_partner';
 
         // Pass intended shop_id so callback can verify match
-        $redirectUrl = $this->shopee->getRedirectUrl()
+        $redirectUrl = ($config['redirect_url'] ?: $this->shopee->getRedirectUrl())
             .'?state='.urlencode($state)
             .'&intended_shop_id='.$store->shop_id;
 
         $baseString = $partnerId.$path.$timestamp;
         $sign = hash_hmac('sha256', $baseString, $partnerKey);
 
-        $host = config('shopee.sandbox')
+        $host = !empty($config['sandbox'])
             ? 'https://openplatform.sandbox.test-stable.shopee.sg'
             : 'https://partner.shopeemobile.com';
 

@@ -4,24 +4,28 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\WorkspaceCredential;
+use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceConfig;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 class WorkspaceCredentialController extends Controller
 {
+    public function __construct(
+        private readonly WorkspaceAccess $workspaceAccess,
+        private readonly WorkspaceConfig $workspaceConfig
+    ) {}
+
     /**
      * Get credentials for the current workspace
      */
-    public function show(WorkspaceConfig $workspaceConfig)
+    public function show(Request $request)
     {
-        $user = Auth::user();
+        $user = $request->user();
         $workspace = $this->getUserWorkspace($user);
 
         if (!$workspace) {
-            return response()->json(['message': 'Workspace not found'], Response::HTTP_NOT_FOUND);
+            return response()->json(['message' => 'Workspace not found'], Response::HTTP_NOT_FOUND);
         }
 
         // Get credentials for both platforms
@@ -50,29 +54,28 @@ class WorkspaceCredentialController extends Controller
     /**
      * Update or create credentials for the current workspace
      */
-    public function update(Request $request, WorkspaceConfig $workspaceConfig)
+    public function update(Request $request)
     {
-        $this->authorize('update', WorkspaceCredential::class);
-
-        $user = Auth::user();
+        $user = $request->user();
         $workspace = $this->getUserWorkspace($user);
 
         if (!$workspace) {
-            return response()->json(['message': 'Workspace not found'], Response::HTTP_NOT_FOUND);
+            return response()->json(['message' => 'Workspace not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Only allow owner to update credentials
+        $role = $this->workspaceAccess->roleInWorkspace($user, $workspace);
+        if ($role !== 'owner') {
+            return response()->json(['message' => 'Only the workspace owner can manage credentials.'], Response::HTTP_FORBIDDEN);
         }
 
         $validated = $request->validate([
-            'partner_id' => 'sometimes|string|max:255',
-            'partner_key' => 'sometimes|string',
-            'push_partner_key' => 'sometimes|string',
-            'app_key' => 'sometimes|string|max:255',
-            'app_secret' => 'sometimes|string',
+            'partner_id' => 'sometimes|nullable|string|max:255',
+            'partner_key' => 'sometimes|nullable|string',
+            'push_partner_key' => 'sometimes|nullable|string',
+            'app_key' => 'sometimes|nullable|string|max:255',
+            'app_secret' => 'sometimes|nullable|string',
         ]);
-
-        // Only allow owner to update credentials
-        if ($workspace->user_id !== $user->id) {
-            return response()->json(['message': 'Unauthorized'], Response::HTTP_FORBIDDEN);
-        }
 
         // Update or create Shopee credentials
         if ($request->hasAny(['partner_id', 'partner_key', 'push_partner_key'])) {
@@ -84,12 +87,12 @@ class WorkspaceCredentialController extends Controller
                 ]);
 
             if ($request->has('partner_id')) {
-                $shopeeCred->partner_id = $request->partner_id;
+                $shopeeCred->partner_id = $request->partner_id ?: null;
             }
-            if ($request->has('partner_key')) {
+            if ($request->has('partner_key') && !empty($request->partner_key)) {
                 $shopeeCred->partner_key = $request->partner_key;
             }
-            if ($request->has('push_partner_key')) {
+            if ($request->has('push_partner_key') && !empty($request->push_partner_key)) {
                 $shopeeCred->push_partner_key = $request->push_partner_key;
             }
 
@@ -106,17 +109,20 @@ class WorkspaceCredentialController extends Controller
                 ]);
 
             if ($request->has('app_key')) {
-                $lazadaCred->app_key = $request->app_key;
+                $lazadaCred->app_key = $request->app_key ?: null;
             }
-            if ($request->has('app_secret')) {
+            if ($request->has('app_secret') && !empty($request->app_secret)) {
                 $lazadaCred->app_secret = $request->app_secret;
             }
 
             $lazadaCred->save();
         }
 
+        // Clear cached config so changes take effect immediately
+        $this->workspaceConfig->clearCache($workspace->id);
+
         return response()->json([
-            'message': 'Credentials updated successfully',
+            'message' => 'Credentials updated successfully',
             'workspace_id' => $workspace->id,
             'has_shopee' => !empty($workspace->credentials()
                 ->where('platform', 'shopee')
@@ -132,27 +138,29 @@ class WorkspaceCredentialController extends Controller
     /**
      * Delete credentials for the current workspace
      */
-    public function destroy(WorkspaceConfig $workspaceConfig)
+    public function destroy(Request $request)
     {
-        $this->authorize('delete', WorkspaceCredential::class);
-
-        $user = Auth::user();
+        $user = $request->user();
         $workspace = $this->getUserWorkspace($user);
 
         if (!$workspace) {
-            return response()->json(['message': 'Workspace not found'], Response::HTTP_NOT_FOUND);
+            return response()->json(['message' => 'Workspace not found'], Response::HTTP_NOT_FOUND);
         }
 
         // Only allow owner to delete credentials
-        if ($workspace->user_id !== $user->id) {
-            return response()->json(['message': 'Unauthorized'], Response::HTTP_FORBIDDEN);
+        $role = $this->workspaceAccess->roleInWorkspace($user, $workspace);
+        if ($role !== 'owner') {
+            return response()->json(['message' => 'Only the workspace owner can manage credentials.'], Response::HTTP_FORBIDDEN);
         }
 
         // Delete both platform credentials
         $workspace->credentials()->delete();
 
+        // Clear cached config
+        $this->workspaceConfig->clearCache($workspace->id);
+
         return response()->json([
-            'message': 'Credentials deleted successfully',
+            'message' => 'Credentials deleted successfully',
         ]);
     }
 
@@ -161,8 +169,7 @@ class WorkspaceCredentialController extends Controller
      */
     private function getUserWorkspace($user)
     {
-        // Assuming there's a workspace access service or similar logic
-        // For now, we'll get the user's personal workspace or first workspace
-        return $user->workspaces()->first();
+        return $this->workspaceAccess->primaryWorkspace($user)
+            ?? $this->workspaceAccess->ensurePersonalWorkspace($user);
     }
 }

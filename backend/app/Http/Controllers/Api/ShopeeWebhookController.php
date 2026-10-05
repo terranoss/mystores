@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ShopeeStore;
 use App\Services\ProductService;
+use App\Services\WorkspaceConfig;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
@@ -16,8 +17,11 @@ use Illuminate\Support\Facades\Log;
 class ShopeeWebhookController extends Controller
 {
     public function __construct(
-        protected ProductService $productService
-    ) {}
+        protected ProductService $productService,
+        protected ?WorkspaceConfig $workspaceConfig = null,
+    ) {
+        $this->workspaceConfig = $workspaceConfig ?? app(WorkspaceConfig::class);
+    }
 
     public function handle(Request $request): Response
     {
@@ -156,10 +160,30 @@ class ShopeeWebhookController extends Controller
     {
         $signature = $request->header('Authorization') ?? $request->query('sign');
         // Console Push Partner Key is primary; App Partner Key kept as fallback.
-        $partnerKeys = array_values(array_filter([
+        $keys = [
             config('shopee.push_partner_key'),
             config('shopee.partner_key'),
-        ], fn ($key) => is_string($key) && $key !== ''));
+        ];
+
+        $shopId = $request->input('shop_id');
+        $workspaceWebhookUrl = null;
+        if ($shopId) {
+            $store = ShopeeStore::where('shop_id', $shopId)->first();
+            if ($store && $store->workspace_id) {
+                $wsConfig = $this->workspaceConfig->getShopeeConfig($store->workspace_id);
+                if (!empty($wsConfig['push_partner_key'])) {
+                    $keys[] = $wsConfig['push_partner_key'];
+                }
+                if (!empty($wsConfig['partner_key'])) {
+                    $keys[] = $wsConfig['partner_key'];
+                }
+                if (!empty($wsConfig['webhook_url'])) {
+                    $workspaceWebhookUrl = $wsConfig['webhook_url'];
+                }
+            }
+        }
+
+        $partnerKeys = array_values(array_unique(array_filter($keys, fn ($key) => is_string($key) && $key !== '')));
 
         if (!$signature || $partnerKeys === []) {
             Log::warning('Shopee webhook signature verification failed', [
@@ -168,7 +192,7 @@ class ShopeeWebhookController extends Controller
             return false;
         }
 
-        $configuredUrl = config('shopee.webhook_url');
+        $configuredUrl = $workspaceWebhookUrl ?: config('shopee.webhook_url');
         $url = $configuredUrl ?: $request->fullUrl();
         $body = $request->getContent();
         $baseString = $url.'|'.$body;

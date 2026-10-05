@@ -42,22 +42,23 @@ class WorkspaceConfig
             ->where('is_active', true)
             ->first();
 
-        // Format the response to match config file structure
+        // Format the response to match config file structure with fallback to global config
         $result = match ($platform) {
             'shopee' => [
-                'partner_id' => $credential?->partner_id ?? null,
-                'partner_key' => $credential?->partner_key ?? null,
-                'push_partner_key' => $credential?->push_partner_key ?? null,
-                'redirect_url' => $credential?->redirect_url ?? null,
-                'webhook_url' => $credential?->redirect_url ? 
-                    rtrim($credential->redirect_url, '/') . '/api/shopee/webhook' : null,
-                'sandbox' => false, // Always production in DB config
+                'partner_id' => $credential?->partner_id ?: config('shopee.partner_id'),
+                'partner_key' => $credential?->partner_key ?: config('shopee.partner_key'),
+                'push_partner_key' => $credential?->push_partner_key ?: config('shopee.push_partner_key'),
+                'redirect_url' => $credential?->redirect_url ?: config('shopee.redirect_url'),
+                'webhook_url' => $credential?->redirect_url
+                    ? rtrim($credential->redirect_url, '/') . '/api/shopee/webhook'
+                    : config('shopee.webhook_url'),
+                'sandbox' => config('shopee.sandbox', false),
             ],
             'lazada' => [
-                'app_key' => $credential?->app_key ?? null,
-                'app_secret' => $credential?->app_secret ?? null,
-                'redirect_url' => $credential?->redirect_url ?? null,
-                'sandbox' => false, // Always production in DB config
+                'app_key' => $credential?->app_key ?: config('lazada.app_key'),
+                'app_secret' => $credential?->app_secret ?: config('lazada.app_secret'),
+                'redirect_url' => $credential?->redirect_url ?: config('lazada.redirect_url', 'https://mystores.melur.com/api/lazada/callback'),
+                'sandbox' => config('lazada.sandbox', false),
             ],
             default => [],
         };
