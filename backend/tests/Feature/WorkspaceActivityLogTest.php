@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\PosInventory;
 use App\Models\Product;
 use App\Models\ShopeeStore;
 use App\Models\User;
@@ -97,52 +96,7 @@ class WorkspaceActivityLogTest extends TestCase
         $all->assertJsonPath('total', 3);
     }
 
-    public function test_activity_enriches_erp_stock_name_from_pos_inventory(): void
-    {
-        $owner = User::factory()->create(['email' => 'enrich-act@example.com']);
-        $workspace = app(WorkspaceAccess::class)->ensurePersonalWorkspace($owner);
 
-        PosInventory::create([
-            'workspace_id' => $workspace->id,
-            'pos_product_id' => 1550,
-            'sku' => 'MCA1550',
-            'name' => 'Monstera Deliciosa',
-            'price' => 25,
-            'total_stock' => 1,
-            'synced_at' => now(),
-        ]);
-
-        $logger = app(WorkspaceActivityLogger::class);
-        $logger->log($owner, 'erp.update_stock', 'Stock update', null, [
-            'sku' => 'MCA1550',
-            'old_stock' => 0,
-            'new_stock' => 1,
-        ], $workspace);
-        $logger->log($owner, 'erp.update_stock', 'Already named', null, [
-            'sku' => 'MCA1550',
-            'name' => 'Keep Existing Name',
-            'old_stock' => 1,
-            'new_stock' => 2,
-        ], $workspace);
-
-        $res = $this->actingAs($owner)->getJson('/api/workspace/activity?action=erp.update_stock');
-        $res->assertOk();
-        $res->assertJsonPath('total', 2);
-
-        // Newest first: already named row keeps its meta.name
-        $res->assertJsonPath('data.0.meta.name', 'Keep Existing Name');
-        // Older row without name gets enriched from pos_inventories
-        $res->assertJsonPath('data.1.meta.name', 'Monstera Deliciosa');
-        $res->assertJsonPath('data.1.meta.sku', 'MCA1550');
-
-        // Enrichment is response-only — stored meta for the older row stays without name
-        $stored = WorkspaceActivityLog::query()
-            ->where('action', 'erp.update_stock')
-            ->where('summary', 'Stock update')
-            ->first();
-        $this->assertNotNull($stored);
-        $this->assertArrayNotHasKey('name', $stored->meta ?? []);
-    }
 
     public function test_invite_writes_activity_log(): void
     {

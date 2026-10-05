@@ -722,8 +722,13 @@ class ProductService
 
             $platform = $product->store->platform ?: 'shopee';
             try {
-                $this->updateStock($user, $product->id, $payload);
-                $results[] = "Store #{$product->store_id} ({$platform}): updated";
+                if ($platform === 'lazada') {
+                    $this->updateStock($user, $product->id, $payload);
+                    $results[] = "Store #{$product->store_id} ({$platform}): updated";
+                } else {
+                    \App\Jobs\UpdateShopeeStockJob::dispatch($user, $product->id, $payload, 'user');
+                    $results[] = "Store #{$product->store_id} ({$platform}): queued";
+                }
             } catch (\Throwable $e) {
                 $results[] = "Store #{$product->store_id} ({$platform}): error: ".$e->getMessage();
             }

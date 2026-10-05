@@ -26,11 +26,11 @@ class ShopeeService
      * @param WorkspaceConfig $workspaceConfig
      */
     public function __construct(
-        WorkspaceAccess $workspaceAccess,
-        WorkspaceConfig $workspaceConfig
+        ?WorkspaceAccess $workspaceAccess = null,
+        ?WorkspaceConfig $workspaceConfig = null
     ) {
-        $this->workspaceAccess = $workspaceAccess;
-        $this->workspaceConfig = $workspaceConfig;
+        $this->workspaceAccess = $workspaceAccess ?? app(WorkspaceAccess::class);
+        $this->workspaceConfig = $workspaceConfig ?? app(WorkspaceConfig::class);
         
         // Initialize client with default config (will be updated per workspace as needed)
         $this->client = new Client(
@@ -44,11 +44,40 @@ class ShopeeService
         }
     }
 
+    private ?int $activeWorkspaceId = null;
+
+    /**
+     * Set an explicit active workspace ID for the service context (useful in background jobs / CLI).
+     */
+    public function setActiveWorkspaceId(?int $workspaceId): self
+    {
+        $this->activeWorkspaceId = $workspaceId;
+        return $this;
+    }
+
+    /**
+     * Run a callback within the context of a specific workspace.
+     */
+    public function withWorkspace(int $workspaceId, callable $callback): mixed
+    {
+        $previous = $this->activeWorkspaceId;
+        $this->activeWorkspaceId = $workspaceId;
+        try {
+            return $callback($this);
+        } finally {
+            $this->activeWorkspaceId = $previous;
+        }
+    }
+
     /**
      * Get the current user's workspace ID
      */
     private function getCurrentWorkspaceId(): ?int
     {
+        if ($this->activeWorkspaceId !== null) {
+            return $this->activeWorkspaceId;
+        }
+
         $user = auth()->user();
         if (!$user) {
             return null;
@@ -218,12 +247,12 @@ class ShopeeService
                     $token->update([
                         'access_token' => encrypt($newTokens['access_token']),
                         'refresh_token' => encrypt($newTokens['refresh_token']),
-                        'access_token_expires_at' = now()->addSeconds($newTokens['expire_in'] ?? 14400),
-                        'refresh_token_expires_at' = now()->addDays(30),
-                        'last_refreshed_at' = now(),
-                        'last_refresh_failed_at' = null,
-                        'last_refresh_error' = null,
-                        'refresh_failure_count' = 0,
+                        'access_token_expires_at' => now()->addSeconds($newTokens['expire_in'] ?? 14400),
+                        'refresh_token_expires_at' => now()->addDays(30),
+                        'last_refreshed_at' => now(),
+                        'last_refresh_failed_at' => null,
+                        'last_refresh_error' => null,
+                        'refresh_failure_count' => 0,
                     ]);
 
                     if (!$store->is_active) {
@@ -234,8 +263,8 @@ class ShopeeService
                     $store->setRelation('token', $token->fresh());
                 } catch (\Exception $e) {
                     $token->forceFill([
-                        'last_refresh_failed_at' = now(),
-                        'last_refresh_error' = mb_substr($e->getMessage(), 0, 255),
+                        'last_refresh_failed_at' => now(),
+                        'last_refresh_error' => mb_substr($e->getMessage(), 0, 255),
                     ]);
                     $token->refresh_failure_count = ((int) $token->refresh_failure_count) + 1;
                     $token->save();
@@ -332,7 +361,7 @@ class ShopeeService
             $res = $client->call('POST', 'shop/set_shop_holiday_mode', [
                 RequestOptions::JSON => [
                     'holiday_mode_on' => $enabled,
-                    'holiday_mode_type' = $modeType,
+                    'holiday_mode_type' => $modeType,
                 ],
             ]);
             return is_array($res) && isset($res['response']) ? $res['response'] : (is_array($res) ? $res : []);

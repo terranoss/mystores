@@ -3,14 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\PosInventory;
 use App\Models\WorkspaceActivityLog;
 use App\Models\WorkspaceMember;
 use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 
 class WorkspaceController extends Controller
 {
@@ -84,60 +82,8 @@ class WorkspaceController extends Controller
         }
 
         $logs = $query->paginate(30);
-        $this->enrichErpStockActivityNames($logs->getCollection(), $workspace->id);
 
         return response()->json($logs);
-    }
-
-    /**
-     * Fill meta.name for erp.update_stock rows that only have SKU (older logs).
-     * Response-only — does not rewrite stored activity rows.
-     *
-     * @param  Collection<int, WorkspaceActivityLog>  $logs
-     */
-    private function enrichErpStockActivityNames(Collection $logs, int $workspaceId): void
-    {
-        $skus = $logs
-            ->filter(function (WorkspaceActivityLog $log) {
-                if ($log->action !== 'erp.update_stock') {
-                    return false;
-                }
-                $meta = is_array($log->meta) ? $log->meta : [];
-                $name = isset($meta['name']) ? trim((string) $meta['name']) : '';
-                $sku = isset($meta['sku']) ? trim((string) $meta['sku']) : '';
-
-                return $name === '' && $sku !== '';
-            })
-            ->map(fn (WorkspaceActivityLog $log) => trim((string) ($log->meta['sku'] ?? '')))
-            ->unique()
-            ->values()
-            ->all();
-
-        if ($skus === []) {
-            return;
-        }
-
-        $namesBySku = PosInventory::query()
-            ->where('workspace_id', $workspaceId)
-            ->whereIn('sku', $skus)
-            ->pluck('name', 'sku');
-
-        foreach ($logs as $log) {
-            if ($log->action !== 'erp.update_stock') {
-                continue;
-            }
-            $meta = is_array($log->meta) ? $log->meta : [];
-            $existingName = isset($meta['name']) ? trim((string) $meta['name']) : '';
-            if ($existingName !== '') {
-                continue;
-            }
-            $sku = isset($meta['sku']) ? trim((string) $meta['sku']) : '';
-            if ($sku === '' || ! $namesBySku->has($sku)) {
-                continue;
-            }
-            $meta['name'] = (string) $namesBySku->get($sku);
-            $log->meta = $meta;
-        }
     }
 
     public function invite(Request $request): JsonResponse

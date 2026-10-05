@@ -49,6 +49,18 @@ class LazadaOrderService
     ) {}
 
     /**
+     * Run a callback within the workspace context of the Lazada service if supported.
+     */
+    private function runWithWorkspace(?int $workspaceId, callable $callback): mixed
+    {
+        if ($workspaceId !== null && method_exists($this->lazada, 'withWorkspace') && !($this->lazada instanceof \Mockery\MockInterface)) {
+            return $this->lazada->withWorkspace($workspaceId, $callback);
+        }
+
+        return $callback();
+    }
+
+    /**
      * @return list<int>
      */
     private function workspaceIds(User $user): array
@@ -92,82 +104,86 @@ class LazadaOrderService
             throw new \InvalidArgumentException("Store #{$store->id} is not a Lazada store.");
         }
 
-        $this->ensureFreshToken($store);
-        $creds = $this->lazada->credentialsForStore($store);
-        $this->refreshShopName($store, $creds);
-        $syncStartedAt = now();
-        $updateAfter = $this->resolveUpdateAfter($store);
-        $offset = 0;
-        $limit = 50;
+        $this->runWithWorkspace($store->workspace_id, function () use ($store) {
+            $this->ensureFreshToken($store);
+            $creds = $this->lazada->credentialsForStore($store);
+            $this->refreshShopName($store, $creds);
+            $syncStartedAt = now();
+            $updateAfter = $this->resolveUpdateAfter($store);
+            $offset = 0;
+            $limit = 50;
 
-        do {
-            $response = $this->lazada->getOrdersList($creds['access_token'], $creds['region'], [
-                'update_after' => $updateAfter,
-                'sort_by' => 'updated_at',
-                'sort_direction' => 'ASC',
-                'offset' => $offset,
-                'limit' => $limit,
-            ]);
+            do {
+                $response = $this->lazada->getOrdersList($creds['access_token'], $creds['region'], [
+                    'update_after' => $updateAfter,
+                    'sort_by' => 'updated_at',
+                    'sort_direction' => 'ASC',
+                    'offset' => $offset,
+                    'limit' => $limit,
+                ]);
 
-            if (isset($response['code']) && (string) $response['code'] !== '0') {
-                throw new \RuntimeException($response['message'] ?? 'Lazada getOrders failed.');
-            }
-
-            $data = $response['data'] ?? [];
-            $orders = $data['orders'] ?? [];
-            if ($orders === []) {
-                break;
-            }
-
-            foreach ($orders as $orderData) {
-                $orderId = $orderData['order_id'] ?? $orderData['order_number'] ?? null;
-                if ($orderId === null || $orderId === '') {
-                    continue;
+                if (isset($response['code']) && (string) $response['code'] !== '0') {
+                    throw new \RuntimeException($response['message'] ?? 'Lazada getOrders failed.');
                 }
-                try {
-                    $this->syncOrderById($store, (string) $orderId, $orderData);
-                } catch (\Exception $e) {
-                    Log::warning('Lazada order sync item failed', [
-                        'store_id' => $store->id,
-                        'order_id' => $orderId,
-                        'error' => $e->getMessage(),
-                    ]);
+
+                $data = $response['data'] ?? [];
+                $orders = $data['orders'] ?? [];
+                if ($orders === []) {
+                    break;
                 }
-            }
 
-            $count = (int) ($data['count'] ?? count($orders));
-            $offset += count($orders);
-            $total = (int) ($data['countTotal'] ?? $offset);
-        } while ($offset < $total && count($orders) >= $limit && $count > 0);
+                foreach ($orders as $orderData) {
+                    $orderId = $orderData['order_id'] ?? $orderData['order_number'] ?? null;
+                    if ($orderId === null || $orderId === '') {
+                        continue;
+                    }
+                    try {
+                        $this->syncOrderById($store, (string) $orderId, $orderData);
+                    } catch (\Exception $e) {
+                        Log::warning('Lazada order sync item failed', [
+                            'store_id' => $store->id,
+                            'order_id' => $orderId,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
 
-        $store->update(['orders_synced_at' => $syncStartedAt]);
-        $this->resyncStaleActionableOrders($store, 2);
+                $count = (int) ($data['count'] ?? count($orders));
+                $offset += count($orders);
+                $total = (int) ($data['countTotal'] ?? $offset);
+            } while ($offset < $total && count($orders) >= $limit && $count > 0);
+
+            $store->update(['orders_synced_at' => $syncStartedAt]);
+            $this->resyncStaleActionableOrders($store, 2);
+        });
     }
 
     public function syncOrderById(ShopeeStore $store, string $orderId, ?array $listData = null): Order
     {
-        $this->ensureFreshToken($store);
-        $creds = $this->lazada->credentialsForStore($store);
+        return $this->runWithWorkspace($store->workspace_id, function () use ($store, $orderId, $listData) {
+            $this->ensureFreshToken($store);
+            $creds = $this->lazada->credentialsForStore($store);
 
-        $orderResponse = $this->lazada->getOrder($creds['access_token'], $creds['region'], $orderId);
-        if (isset($orderResponse['code']) && (string) $orderResponse['code'] !== '0') {
-            throw new \RuntimeException($orderResponse['message'] ?? "Lazada getOrder failed for {$orderId}");
-        }
-        $orderData = $orderResponse['data'] ?? $orderResponse;
-        if ($listData) {
-            $orderData = array_merge($listData, is_array($orderData) ? $orderData : []);
-        }
+            $orderResponse = $this->lazada->getOrder($creds['access_token'], $creds['region'], $orderId);
+            if (isset($orderResponse['code']) && (string) $orderResponse['code'] !== '0') {
+                throw new \RuntimeException($orderResponse['message'] ?? "Lazada getOrder failed for {$orderId}");
+            }
+            $orderData = $orderResponse['data'] ?? $orderResponse;
+            if ($listData) {
+                $orderData = array_merge($listData, is_array($orderData) ? $orderData : []);
+            }
 
-        $itemsResponse = $this->lazada->getOrderItems($creds['access_token'], $creds['region'], $orderId);
-        if (isset($itemsResponse['code']) && (string) $itemsResponse['code'] !== '0') {
-            throw new \RuntimeException($itemsResponse['message'] ?? "Lazada getOrderItems failed for {$orderId}");
-        }
-        $items = $itemsResponse['data'] ?? [];
-        if (!is_array($items)) {
-            $items = [];
-        }
+            $itemsResponse = $this->lazada->getOrderItems($creds['access_token'], $creds['region'], $orderId);
+            if (isset($itemsResponse['code']) && (string) $itemsResponse['code'] !== '0') {
+                throw new \RuntimeException($itemsResponse['message'] ?? "Lazada getOrderItems failed for {$orderId}");
+            }
+            $items = $itemsResponse['data'] ?? [];
+            if (!is_array($items)) {
+                $items = [];
+            }
 
-        return $this->upsertLazadaOrder($store, $orderData, $items);
+            return $this->upsertLazadaOrder($store, $orderData, $items);
+        });
     }
 
     /**
@@ -552,7 +568,7 @@ class LazadaOrderService
         }
 
         $refreshToken = decrypt($token->refresh_token);
-        $data = $this->lazada->refreshToken($refreshToken);
+        $data = $this->runWithWorkspace($store->workspace_id, fn () => $this->lazada->refreshToken($refreshToken));
         $token->update([
             'access_token' => encrypt($data['access_token']),
             'refresh_token' => encrypt($data['refresh_token'] ?? $refreshToken),

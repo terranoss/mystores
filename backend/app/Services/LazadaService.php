@@ -24,17 +24,41 @@ class LazadaService
 
     private WorkspaceAccess $workspaceAccess;
     private WorkspaceConfig $workspaceConfig;
+    private ?int $activeWorkspaceId = null;
 
     /**
-     * @param WorkspaceAccess $workspaceAccess
-     * @param WorkspaceConfig $workspaceConfig
+     * @param WorkspaceAccess|null $workspaceAccess
+     * @param WorkspaceConfig|null $workspaceConfig
      */
     public function __construct(
-        WorkspaceAccess $workspaceAccess,
-        WorkspaceConfig $workspaceConfig
+        ?WorkspaceAccess $workspaceAccess = null,
+        ?WorkspaceConfig $workspaceConfig = null
     ) {
-        $this->workspaceAccess = $workspaceAccess;
-        $this->workspaceConfig = $workspaceConfig;
+        $this->workspaceAccess = $workspaceAccess ?? app(WorkspaceAccess::class);
+        $this->workspaceConfig = $workspaceConfig ?? app(WorkspaceConfig::class);
+    }
+
+    /**
+     * Set an explicit active workspace ID for the service context (useful in background jobs / CLI).
+     */
+    public function setActiveWorkspaceId(?int $workspaceId): self
+    {
+        $this->activeWorkspaceId = $workspaceId;
+        return $this;
+    }
+
+    /**
+     * Run a callback within the context of a specific workspace.
+     */
+    public function withWorkspace(int $workspaceId, callable $callback): mixed
+    {
+        $previous = $this->activeWorkspaceId;
+        $this->activeWorkspaceId = $workspaceId;
+        try {
+            return $callback($this);
+        } finally {
+            $this->activeWorkspaceId = $previous;
+        }
     }
 
     /**
@@ -42,6 +66,10 @@ class LazadaService
      */
     private function getCurrentWorkspaceId(): ?int
     {
+        if ($this->activeWorkspaceId !== null) {
+            return $this->activeWorkspaceId;
+        }
+
         $user = auth()->user();
         if (!$user) {
             return null;
@@ -90,20 +118,18 @@ class LazadaService
 
     public function getAppKey(): string
     {
-        $config = $this->getCurrentWorkspaceLazadaConfig();
-        return $config['app_key'];
+        return $this->requireConfigValue('app_key');
     }
 
     public function getRedirectUrl(): string
     {
         $config = $this->getCurrentWorkspaceLazadaConfig();
-        return (string) $config['redirect_url'];
+        return (string) ($config['redirect_url'] ?? '');
     }
 
     private function getAppSecret(): string
     {
-        $config = $this->getCurrentWorkspaceLazadaConfig();
-        return $config['app_secret'];
+        return $this->requireConfigValue('app_secret');
     }
 
     private function requireConfigValue(string $key): string
