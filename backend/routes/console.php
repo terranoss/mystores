@@ -33,3 +33,6 @@ Schedule::call(function () {
     ShopeeOAuthState::where('expires_at', '<', now()->subDay())->delete();
 })->daily();
 
+// Purge buyer PII from orders older than 90 days (Shopee requirement)
+Schedule::command('orders:purge-buyer-data')->dailyAt('02:00');
+
