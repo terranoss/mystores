@@ -8,7 +8,7 @@
     "password_or_passphrase": ""
   },
   "github": {
-    "repo": "https://github.com/terranoss/stores.git",
+    "repo": "https://github.com/terranoss/mystores.git",
     "branch": "main"
   },
   "server": {
