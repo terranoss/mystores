@@ -39,6 +39,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(10)->by("register:{$request->ip()}");
         });
 
+        RateLimiter::for('change-password', function (Request $request) {
+            return Limit::perMinute(5)->by('change-password:'.($request->user()?->id ?? $request->ip()));
+        });
+
         RateLimiter::for('oauth', function (Request $request) {
             return Limit::perMinute(20)->by('oauth:'.($request->user()?->id ?? $request->ip()));
         });

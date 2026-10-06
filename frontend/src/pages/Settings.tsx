@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { isAxiosError } from 'axios';
 import { PageShell } from '../components/PageShell';
 import Spinner from '../components/Spinner';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +9,86 @@ import {
   getWorkspaceCredentials,
   updateWorkspaceCredentials,
   deleteWorkspaceCredentials,
+  changePassword,
 } from '../api/client';
+
+/** Password input with show/hide toggle (same SVGs as Login.tsx). */
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  shown,
+  onToggleShown,
+  error,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  shown: boolean;
+  onToggleShown: () => void;
+  error?: string[];
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-xs font-semibold text-ink-700 uppercase tracking-wider mb-1.5">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={shown ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full max-w-md px-3 py-2 pr-11 border border-ink-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-clay-500"
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          onClick={onToggleShown}
+          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-ink-400 hover:text-ink-600 transition focus:outline-none"
+          tabIndex={-1}
+          aria-label={shown ? 'Hide password' : 'Show password'}
+        >
+          {shown ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"
+              />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.8}
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
+      {error && error.length > 0 && (
+        <p className="mt-1.5 text-sm text-red-500 font-medium">{error[0]}</p>
+      )}
+    </div>
+  );
+}
 
 export default function Settings() {
   const { user } = useAuth();
@@ -27,6 +107,14 @@ export default function Settings() {
   });
   const [shopeeLoading, setShopeeLoading] = useState(false);
   const [lazadaLoading, setLazadaLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string[]>>({});
   const { showToast } = useToast();
 
   const loadSettings = useCallback(async () => {
@@ -124,6 +212,52 @@ export default function Settings() {
     }
   };
 
+  const handlePasswordSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setPasswordErrors({});
+
+    const errs: Record<string, string[]> = {};
+    if (!currentPassword) {
+      errs.current_password = ['Current password is required.'];
+    }
+    if (newPassword.length < 8) {
+      errs.password = ['New password must be at least 8 characters.'];
+    } else if (newPassword === currentPassword) {
+      errs.password = ['New password must be different from the current password.'];
+    }
+    if (newPassword !== passwordConfirmation) {
+      errs.password_confirmation = ['Password confirmation does not match.'];
+    }
+    if (Object.keys(errs).length > 0) {
+      setPasswordErrors(errs);
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await changePassword({
+        current_password: currentPassword,
+        password: newPassword,
+        password_confirmation: passwordConfirmation,
+      });
+      showToast('Password updated successfully', 'success');
+      setCurrentPassword('');
+      setNewPassword('');
+      setPasswordConfirmation('');
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 422 && error.response.data?.errors) {
+        setPasswordErrors(error.response.data.errors as Record<string, string[]>);
+      } else if (isAxiosError(error) && error.response?.status === 429) {
+        showToast('Too many attempts. Please wait a minute and try again.', 'error');
+      } else {
+        console.error('Failed to update password:', error);
+        showToast('Failed to update password', 'error');
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageShell>
@@ -134,28 +268,82 @@ export default function Settings() {
     );
   }
 
-  if (!isOwner) {
-    return (
-      <PageShell>
-        <div className="p-6">
-          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-xl p-4 text-sm font-medium">
-            Only the workspace owner can view and edit platform credentials.
-          </div>
-        </div>
-      </PageShell>
-    );
-  }
-
   return (
     <PageShell>
       <div className="p-6 max-w-4xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold text-ink-900 tracking-tight">Settings</h1>
+          <p className="text-sm text-ink-500 mt-1">
+            Manage your login password and workspace platform credentials.
+          </p>
+        </div>
+
+        {/* Change password — available to every user */}
+        <div className="bg-white border border-ink-200 rounded-2xl p-6 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-ink-900">Change Password</h2>
+            <p className="text-xs text-ink-400">
+              Update your login password. Other signed-in sessions will be logged out.
+            </p>
+          </div>
+
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <PasswordField
+              id="currentPassword"
+              label="Current Password"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              placeholder="••••••••"
+              shown={showCurrentPassword}
+              onToggleShown={() => setShowCurrentPassword((v) => !v)}
+              error={passwordErrors.current_password}
+              disabled={passwordLoading}
+            />
+            <PasswordField
+              id="newPassword"
+              label="New Password"
+              value={newPassword}
+              onChange={setNewPassword}
+              placeholder="At least 8 characters"
+              shown={showNewPassword}
+              onToggleShown={() => setShowNewPassword((v) => !v)}
+              error={passwordErrors.password}
+              disabled={passwordLoading}
+            />
+            <PasswordField
+              id="passwordConfirmation"
+              label="Confirm New Password"
+              value={passwordConfirmation}
+              onChange={setPasswordConfirmation}
+              placeholder="Repeat your new password"
+              shown={showConfirmation}
+              onToggleShown={() => setShowConfirmation((v) => !v)}
+              error={passwordErrors.password_confirmation}
+              disabled={passwordLoading}
+            />
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="px-4 py-2 bg-clay-600 hover:bg-clay-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {passwordLoading ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {isOwner && (
         <div>
           <h1 className="text-2xl font-bold text-ink-900 tracking-tight">Workspace Credentials</h1>
           <p className="text-sm text-ink-500 mt-1">
             Configure platform API credentials for your workspace. These credentials are used by team members to connect and sync stores.
           </p>
         </div>
+        )}
 
+        {isOwner && (
         <div className="space-y-6">
           {/* Shopee */}
           <div className="bg-white border border-ink-200 rounded-2xl p-6 shadow-sm">
@@ -306,6 +494,12 @@ export default function Settings() {
             </form>
           </div>
         </div>
+        )}
+        {!isOwner && (
+          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-xl p-4 text-sm font-medium">
+            Only the workspace owner can view and edit platform credentials.
+          </div>
+        )}
       </div>
     </PageShell>
   );

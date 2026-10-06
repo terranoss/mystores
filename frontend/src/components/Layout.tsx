@@ -7,7 +7,7 @@ import StoreSwitcher from './StoreSwitcher';
 import NotificationBell from './NotificationBell';
 import { APP_VERSION } from '../version';
 
-const getNavItems = (userRole: string | null) => {
+const getNavItems = () => {
   const baseNav = [
     { label: 'Dashboard', path: '/dashboard', icon: '◉' },
     { 
@@ -24,12 +24,8 @@ const getNavItems = (userRole: string | null) => {
     { label: 'Team', path: '/team', icon: '◎' },
   ];
 
-  // Add Settings for owners only
-  if (userRole === 'owner') {
-    return [...baseNav, { label: 'Settings', path: '/settings', icon: '⚙' }];
-  }
-
-  return baseNav;
+  // Settings hosts per-user actions (change password) plus owner-only platform credentials
+  return [...baseNav, { label: 'Settings', path: '/settings', icon: '⚙' }];
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -39,7 +35,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(new Set());
-  const navItems = getNavItems(user?.workspace_role ?? null);
+  const navItems = getNavItems();
 
   // Poll for pending order count every 60s
   useEffect(() => {

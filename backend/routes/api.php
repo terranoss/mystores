@@ -29,6 +29,7 @@ Route::get('/lazada/callback', [LazadaAuthController::class, 'callback'])->middl
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:change-password');
     // Notifications
     Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
