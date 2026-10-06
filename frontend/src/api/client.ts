@@ -1207,3 +1207,14 @@ export async function updateWorkspaceCredentials(data: Partial<Omit<WorkspaceCre
 export async function deleteWorkspaceCredentials(): Promise<void> {
   await api.delete('/workspace/credentials');
 }
+
+// ── Account ────────────────────────────────────────────────────────
+
+export async function changePassword(data: {
+  current_password: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<{ message: string }> {
+  const res = await api.post('/change-password', data);
+  return res.data;
+}

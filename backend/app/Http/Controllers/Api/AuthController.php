@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ChangePasswordRequest;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -52,6 +54,25 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Logged out successfully.',
+        ]);
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->password = $request->password;
+        $user->save();
+
+        // Revoke all other sessions (tokens); keep the current one so the user stays logged in.
+        $currentToken = $user->currentAccessToken();
+        $tokens = $user->tokens();
+        if ($currentToken instanceof PersonalAccessToken) {
+            $tokens->where('id', '!=', $currentToken->id);
+        }
+        $tokens->delete();
+
+        return response()->json([
+            'message' => 'Password updated successfully.',
         ]);
     }
 
