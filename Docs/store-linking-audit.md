@@ -18,9 +18,9 @@
 | **Phase 2** | P1 (High) | OAuth Security, Platform Isolation & State Migration | ~220 | ~190 | **~410 LOC** | `[x] Complete (merged via PR #2)` |
 | **Phase 3** | P2 (Medium) | Shared Health Service, Notifications & API Hardening | ~280 | ~170 | **~450 LOC** | `[x] Complete (merged via PR #3)` |
 | **Phase 4** | P2 (Medium) | Web Dashboard State Consolidation & UI Hardening | ~60 | ~0 | **~60 LOC** | `[x] Complete` |
-| **Phase 5** | P3 (Low) | Mobile Parity, Action Sheets & Serialization Resiliency | ~230 | ~150 | **~380 LOC** | `[ ] Ready for Execution (Next)` |
-| **Phase 6** | Quality | End-to-End Regression Suite & Cross-Platform Integrity | ~0 | ~410 | **~410 LOC** | `[ ] Queued` |
-| **Total** | | **Comprehensive Store Linking Remediation** | **~920** | **~1,320** | **~2,240 LOC** | **4 of 6 phases complete** |
+| **Phase 5** | P3 (Low) | Mobile Parity, Action Sheet & Serialization Resiliency | ~80 | ~40 | **~120 LOC** | `[ ] Ready for Execution (Next)` |
+| **Phase 6** | Quality | End-to-End Regression Gate & Remaining Token Tests | ~0 | ~80 | **~80 LOC** | `[ ] Queued` |
+| **Total** | | **Comprehensive Store Linking Remediation** | **~770** | **~720** | **~1,490 LOC** | **4 of 6 phases complete** |
 
 ---
 
@@ -61,18 +61,15 @@ flowchart TD
         T42 --> T43[Task 4.3: Synchronize Store Actions with Topbar StoreContext [x]]
     end
 
-    subgraph Phase 5: NEXT - P3 Mobile Parity & Resiliency
+    subgraph Phase 5: ~120 LOC - P3 Mobile Parity & Resiliency - NEXT
         T51[Task 5.1: Safe shop_id Parsing in Dart Model]
-        T52[Task 5.2: Align Mobile Health Badge Fallbacks]
-        T53[Task 5.3: Store Action Bottom Sheet in Flutter]
-        T54[Task 5.4: Connect Disconnect/Unlink/Vacation in StoreProvider]
+        T52[Task 5.2: Harmonize StatusBadge Labels & Colors]
+        T53[Task 5.3: Store Card Action Menu in Flutter Dashboard]
     end
 
-    subgraph Phase 6: ~410 LOC - Regression Gate & Test Suite
-        T61[Task 6.1: Lazada Auth Controller Full Test Suite]
-        T62[Task 6.2: Lazada Token Refresh & Concurrency Suite]
-        T63[Task 6.3: Multi-Tenant Workspace Credential Isolation Suite]
-        T64[Task 6.4: Full Suite Pass >200 Tests]
+    subgraph Phase 6: ~80 LOC - Quality Regression Gate
+        T61[Task 6.1: Scheduled Token Refresh Command Filter Tests]
+        T62[Task 6.2: Cross-Platform Full Regression Gate]
     end
 
     Phase 1 --> Phase 2
@@ -600,115 +597,88 @@ After the Phase 2 ↔ Phase 3 branches were merged, the suite stands at `239 pas
 
 ---
 
-## Phase 5: Mobile Parity, Action Sheets & Serialization Resiliency (P3)
-**Estimated Size:** ~380 LOC (Dart Impl: ~230 LOC, Tests: ~150 LOC)  
-**Objective:** Prevent mobile serialization crashes, add store management actions to Flutter, and harmonize badges.
+## Phase 5: Mobile Parity, Action Sheet & Serialization Resiliency (P3)
+**Estimated Size:** ~120 LOC (Dart Impl: ~80 LOC, Tests: ~40 LOC)  
+**Status:** `[ ] Ready for Execution (Next)` — requires human approval per the execution policy.  
+**Objective:** Prevent mobile serialization crashes on flexible ID types, align status badge styling with web, and wire store actions to the Flutter dashboard cards.
 
 ### [ ] Task 5.1: Safe shop_id parsing in Dart model
 - **Ref:** Finding #23 (LOW)
 - **Target File:** [`mobile/lib/core/models/store.dart:94-96`](file:///d:/GitHub/mystores/mobile/lib/core/models/store.dart#L94-L96)
-- **Estimated LOC:** ~20 LOC impl, ~40 LOC test
+- **Estimated LOC:** ~15 LOC impl, ~25 LOC test
 - **Problem Statement:**  
-  Direct cast `json['shop_id'] as int` crashes when values are returned as string or BigInt.
+  Direct cast `json['shop_id'] as int` crashes when values are returned as string or BigInt by upstream APIs.
 - **Code Changes:**
   ```dart
   id: json['id'] is int ? json['id'] as int : int.tryParse(json['id'].toString()) ?? 0,
   shopId: json['shop_id'] is int ? json['shop_id'] as int : int.tryParse(json['shop_id'].toString()) ?? 0,
   ```
-- **Verification:** `flutter test test/models/store_test.dart` parsing numbers, strings, and missing IDs.
+- **Verification:** Unit test in `mobile/test/models/store_test.dart` parsing numbers, numeric strings, and null fallbacks.
 
 ---
 
-### [ ] Task 5.2: Align mobile health badge fallbacks & style
+### [ ] Task 5.2: Harmonize StatusBadge labels & colors
 - **Ref:** Finding #21 (LOW)
-- **Target File:** [`mobile/lib/features/dashboard/dashboard_screen.dart:779-820`](file:///d:/GitHub/mystores/mobile/lib/features/dashboard/dashboard_screen.dart#L779)
-- **Estimated LOC:** ~40 LOC impl, ~30 LOC test
+- **Target File:** [`mobile/lib/shared/widgets/status_badge.dart:18-63`](file:///d:/GitHub/mystores/mobile/lib/shared/widgets/status_badge.dart#L18-L63)
+- **Estimated LOC:** ~20 LOC impl, ~15 LOC test
+- **Problem Statement:**  
+  Mobile `StatusBadge.fromConnectionStatus` displays `'Expired'` for `missingToken` (web shows `'Missing Token'`) and `'Reauthorize'` for `reauthorizeRequired` (web shows `'Reauthorize Required'`).
 - **Code Changes:**
-  Harmonize color tokens and labels with web (active = Emerald green, expiring = Amber, reauth = Rose red, disconnected = Slate gray).
-- **Verification:** Widget test verifying health badge renders accurately for all enum values.
+  Align label text and theme colors with web tokens (`missingToken` -> `'Missing Token'`, `reauthorizeRequired` -> `'Reauthorize Required'`).
+- **Verification:** Widget test verifying badge renders consistent labels for all connection status enum values.
 
 ---
 
-### [ ] Task 5.3: Store action bottom sheet in Flutter
+### [ ] Task 5.3: Store card action menu in Flutter Dashboard
 - **Ref:** Finding #22 (LOW)
-- **Target File:** `mobile/lib/features/dashboard/widgets/store_action_sheet.dart` (New)
-- **Estimated LOC:** ~110 LOC impl, ~45 LOC test
+- **Target File:** [`mobile/lib/features/dashboard/dashboard_screen.dart:790-805`](file:///d:/GitHub/mystores/mobile/lib/features/dashboard/dashboard_screen.dart#L790)
+- **Estimated LOC:** ~45 LOC impl
+- **Problem Statement:**  
+  Mobile store cards only offer a "Reauth" button when `requiresReauthorization` is true. Users cannot disconnect an active or failing store from mobile even though `StoreNotifier.disconnectStore()` is already implemented in `store_provider.dart`.
 - **Code Changes:**
-  Create bottom modal sheet providing:
-  - Re-link store button
-  - Vacation mode toggle switch
-  - Disconnect store with confirmation dialog
-  - Permanent unlink store with safety prompt
-- **Verification:** Widget test verifying modal triggers each action properly.
+  Add a `PopupMenuButton` or trailing options menu to `_StoreCard` in `dashboard_screen.dart`:
+  - "Disconnect": Prompts confirmation dialog and calls `refConsumer.read(storeProvider.notifier).disconnectStore(store.id, store.platform)`.
+  - "Reauthorize": Visible if reauthorization required or requested.
+- **Verification:** Widget / interactive test verifying tapping disconnect shows dialog and calls provider.
 
 ---
 
-### [ ] Task 5.4: Connect mobile UI to `StoreProvider` actions
-- **Ref:** Finding #22 (LOW)
-- **Target Files:**
-  - `mobile/lib/features/dashboard/dashboard_screen.dart`
-  - `mobile/lib/core/providers/store_provider.dart`
-- **Estimated LOC:** ~60 LOC impl, ~35 LOC test
-- **Code Changes:**
-  Hook store card trailing menu to `StoreProvider.disconnectStore()`, `unlinkStore()`, and vacation mode update.
-- **Verification:** Integration test verifying tapping disconnect invokes provider and updates list.
+## Phase 6: End-to-End Regression Gate & Remaining Token Tests (Quality)
+**Estimated Size:** ~80 LOC (Automated Tests & Quality Gate)  
+**Status:** `[ ] Queued`  
+**Objective:** Complete final scheduler refresh tests and execute full 3-stack regression gate.
 
----
+> **Note on test deduplication:**  
+> - Former Task 6.1 (`LazadaAuthControllerTest`) was **already implemented in Phase 2** (9 tests, 285 LOC).  
+> - Former Task 6.3 (`WorkspaceCredentialTest` & `StoreHealthNotificationTest`) was **already implemented in Phase 3** (13 tests, 328 LOC).  
+> These are marked resolved without duplicating work.
 
-## Phase 6: End-to-End Regression Suite & Cross-Platform Integrity (Quality)
-**Estimated Size:** ~410 LOC (All Automated Tests & Verification)  
-**Objective:** Close all 11 test gaps, guarantee multi-tenant security, and verify concurrency safety under load.
-
-### [ ] Task 6.1: Lazada Auth Controller Full Test Suite
-- **Ref:** Test Gap 2
-- **Target File:** `backend/tests/Feature/LazadaAuthControllerTest.php` (New)
-- **Estimated LOC:** ~150 LOC test
+### [ ] Task 6.1: Scheduled token refresh command filter tests
+- **Ref:** Test Gap 3
+- **Target File:** [`backend/tests/Feature/LazadaTokenRefreshTest.php`](file:///d:/GitHub/mystores/backend/tests/Feature/LazadaTokenRefreshTest.php)
+- **Estimated LOC:** ~50 LOC test
 - **Test Cases:**
-  - `test_redirect_generates_valid_oauth_state_with_lazada_platform`
-  - `test_callback_exchanges_code_for_tokens_and_creates_store`
-  - `test_callback_rejects_reauth_with_mismatched_seller_id`
-  - `test_callback_rejects_state_from_different_platform`
-  - `test_disconnect_deactivates_lazada_store_and_removes_token`
-
----
-
-### [ ] Task 6.2: Lazada Token Refresh & Concurrency Suite (Expansion)
-- **Ref:** Test Gaps 3 & 4
-- **Target File:** `backend/tests/Feature/LazadaTokenRefreshTest.php`
-- **Phase 1 Progress:** Seeded with 4 passing tests (mutex concurrency lock, expiry extension, failure counter, expired refresh token rejection).
-- **Remaining Scope (~50 LOC):**
   - `test_scheduled_lazada_refresh_skips_valid_tokens`
   - `test_scheduled_lazada_refresh_processes_expiring_tokens`
+- **Verification:** `php artisan test --filter=LazadaTokenRefreshTest` passing all tests.
 
 ---
 
-### [ ] Task 6.3: Multi-tenant credential isolation & notification tests
-- **Ref:** Test Gaps 5, 8, 9, 10
-- **Target Files:**
-  - `backend/tests/Feature/WorkspaceCredentialTest.php` (New)
-  - `backend/tests/Feature/StoreHealthNotificationTest.php` (New)
-  - `backend/tests/Feature/ShopeeVacationModeTest.php`
-- **Phase 1 Progress:** Platform filter (`test_refresh_command_ignores_lazada_stores`), workspace scoping (`test_refresh_store_token_uses_store_workspace_credentials`), and scheduler overlap mutex tests were completed.
-- **Remaining Scope (~100 LOC):**
-  - `test_non_owner_forbidden_from_viewing_credentials`
-  - `test_owner_can_clear_credentials`
-  - `test_store_health_notification_dispatches_when_expiring`
-  - `test_lazy_vacation_sync_on_active_healthy_store`
-
----
-
-### [ ] Task 6.4: Cross-platform full regression gate
-- **Estimated LOC:** Automated validation run across all suites
+### [ ] Task 6.2: Cross-platform full regression gate
+- **Estimated LOC:** ~30 LOC doc / script
 - **Execution Recipe:**
   ```bash
-  # 1. Backend tests
+  # 1. Backend test suite
   cd backend && php artisan test
-  # 2. Web frontend build & test
-  cd ../frontend && npm run build && npm test -- --run
+  # 2. Web frontend build & lint
+  cd ../frontend && npm run build && npm run lint
   # 3. Mobile static analysis & tests
   cd ../mobile && flutter analyze && flutter test
   ```
-- **Acceptance Criteria:** Total passing backend tests >200 (up from baseline 185). Zero TypeScript compiler errors. Zero Flutter analysis issues.
+- **Acceptance Criteria:** 
+  - Total passing backend tests >=241 (up from baseline 185).
+  - Frontend TypeScript compile clean (0 errors).
+  - Flutter analysis clean (0 issues) and all unit/widget tests passing.
 
 ---
 
