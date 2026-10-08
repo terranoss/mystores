@@ -1,27 +1,27 @@
 # Graph Report - mystores  (2026-10-08)
 
 ## Corpus Check
-- 298 files · ~145,819 words
+- 298 files · ~146,052 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 46 file(s) not represented in the graph (top: (none) 22, .xml 12, .example 5)
 
 ## Summary
-- 3286 nodes · 6841 edges · 178 communities (105 shown, 73 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 115 edges (avg confidence: 0.92)
+- 3301 nodes · 6853 edges · 183 communities (109 shown, 74 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 121 edges (avg confidence: 0.92)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9ad856a0`
+- Built from commit: `43dada29`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - UnifiedOrdersPanel.tsx
-- Order
+- OrderService
 - dashboard.dart
 - client.ts
 - User
-- ShopeeToken
+- ShopeeStore
 - Illuminate\Database\Eloquent\Relations\BelongsTo
 - LazadaService
 - pick_list_screen.dart
@@ -37,8 +37,8 @@
 - TestCase
 - dashboard_screen.dart
 - react
-- PickListCommentTest
-- Illuminate\Bus\Queueable
+- WorkspaceMember
+- Illuminate\Notifications\Notification
 - Stock.tsx
 - Promotions.tsx
 - Illuminate\Foundation\Http\FormRequest
@@ -65,46 +65,45 @@
 - ShopeePromotionService
 - login_screen.dart
 - Illuminate\Database\Schema\Blueprint
-- UpdateShopeeStockJob
-- WorkspaceConfig
-- PickListPhotoCompressor
+- Illuminate\Bus\Queueable
+- WorkspaceCredentialController
+- LazadaTokenRefreshTest
 - ShopeeTokenRefreshTest
 - frontend/package.json
 - auth_provider.dart
 - EcomPHP\Shopee\Client
-- ShopeeStore
+- Order
 - compilerOptions
 - notification.dart
 - Illuminate\Console\Command
 - ShopeeResponseHelper
 - compilerOptions
 - deploy.py
-- PickListComment
-- Workspace
-- .ensureFreshToken
+- Controller
+- Illuminate\Database\Eloquent\Relations\HasMany
+- LazadaOrderService
 - authProvider
-- ProductController
+- ProductVariant
 - PromotionController.php
 - SyncShopeeOrderJob
 - AppServiceProvider.php
-- LazadaOrderService
+- StoreHealthServiceTest
 - devDependencies
 - auth_storage.dart
 - notification_provider.dart
-- SecurityHeaders.php
-- LazadaProductUpdateTest.php
+- Phase 3 Verification Result (2026-10-08)
+- LazadaProductUpdateTest
 - 2026_10_08_000001_add_platform_to_shopee_oauth_states_table.php
 - 2026_08_11_000001_add_category_brand_to_pos_inventories.php
 - plant_identification_result.dart
-- LazadaOrderService.php
 - backend/package.json
 - Plan: Workspace Credentials Management (Owner-Only Settings)
 - _
 - 90-Day Buyer Data Retention Policy Implementation Plan
 - api_log.dart
 - MyStoresWidgetProvider.kt
-- StoreNotActiveException
-- workspace_activity.dart
+- bootstrap/app.php
+- StoreHealthNotificationTest
 - composer.json
 - scripts
 - home_screen_widget.dart
@@ -113,19 +112,19 @@
 - RefreshShopeeTokens.php
 - require
 - require-dev
-- BulkShippingLabelTest
+- console.php
 - LazadaBulkAwbTest
 - app_shell_scope.dart
 - config
-- Illuminate\Support\Str
-- LazadaAuthController
+- PickListPhotoCompressor
+- Store Linking Feature — Fix Plan & Implementation Roadmap
 - devDependencies
 - dependencies
 - scripts
 - MyStores — Mobile App
 - API Overview
 - 2026_08_23_000001_add_stock_note_to_pos_inventories.php
-- ShopeeOrderQuantityTest
+- NeedsPushStockTest
 - Features
 - vite.config.js
 - api.php
@@ -161,11 +160,11 @@
 - extra
 - FlutterActivity
 - tsconfig.json
-- WorkspaceNotificationService
+- PickListComment
 - Plan: Remove Sandbox Mode - Test on Production Server
 - Getting Started (Local Development)
 - WorkspaceInvite
-- WorkspaceNotificationService.php
+- OrderNewNotification
 - 2026_06_22_000006_add_skus_to_products_and_variants.php
 - Server Setup Guide — mystores.melur.com
 - 🛡️ Security
@@ -176,67 +175,64 @@
 - 2026_06_22_000007_create_inventory_logs_table.php
 - 2026_08_10_000001_create_pos_inventories_table.php
 - AGENTS.md
+- Phase 1: Core Token Lifecycle & Concurrency Engine (P0)
+- PickListCommentRead
+- WorkspaceActivityLog
+- OrderStatusChangedNotification
+- ProductGroupedFilterTest
 
 ## God Nodes (most connected - your core abstractions)
 1. `User` - 297 edges
-2. `ShopeeStore` - 238 edges
+2. `ShopeeStore` - 236 edges
 3. `Order` - 107 edges
-4. `TestCase` - 72 edges
-5. `LazadaService` - 71 edges
-6. `WorkspaceAccess` - 66 edges
+4. `TestCase` - 70 edges
+5. `WorkspaceAccess` - 65 edges
+6. `LazadaService` - 62 edges
 7. `ShopeeService` - 61 edges
 8. `Product` - 59 edges
 9. `ShopeeToken` - 53 edges
 10. `ProductService` - 52 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `5. Update Existing Controllers` --references--> `LazadaAuthController`  [INFERRED]
-  .kilo/plans/1791155046087-workspace-credentials.md → backend/app/Http/Controllers/Api/LazadaAuthController.php
-- `Core Features` --references--> `UpdateShopeeStockJob`  [INFERRED]
-  README.md → backend/app/Jobs/UpdateShopeeStockJob.php
-- `🔄 Cross-Store Sync` --references--> `UpdateShopeeStockJob`  [INFERRED]
-  README.md → backend/app/Jobs/UpdateShopeeStockJob.php
-- `Running Queue Workers` --references--> `UpdateShopeeStockJob`  [INFERRED]
-  README.md → backend/app/Jobs/UpdateShopeeStockJob.php
 - `[x] Task 1.5: Add platform filter to `shopee:refresh-tokens`` --references--> `ShopeeToken`  [INFERRED]
   Docs/store-linking-audit.md → backend/app/Models/ShopeeToken.php
+- `[x] Task 2.6: Workspace cache key scoping & tenant secret protection` --references--> `WorkspaceConfig`  [INFERRED]
+  Docs/store-linking-audit.md → backend/app/Services/WorkspaceConfig.php
+- `[x] Task 4.3: Synchronize store actions with topbar `StoreContext`` --references--> `useStore()`  [INFERRED]
+  Docs/store-linking-audit.md → frontend/src/context/StoreContext.tsx
+- `5. Update Existing Controllers` --references--> `LazadaAuthController`  [INFERRED]
+  .kilo/plans/1791155046087-workspace-credentials.md → backend/app/Http/Controllers/Api/LazadaAuthController.php
+- `Model: `WorkspaceCredential`` --references--> `WorkspaceCredential`  [INFERRED]
+  .kilo/plans/1791155046087-workspace-credentials.md → backend/app/Models/WorkspaceCredential.php
 
 ## Import Cycles
 - None detected.
 
-## Communities (178 total, 73 thin omitted)
+## Communities (183 total, 74 thin omitted)
 
 ### Community 0 - "UnifiedOrdersPanel.tsx"
 Cohesion: 0.06
-Nodes (90): downloadLazadaAwb(), downloadLazadaAwbsBulk(), downloadShippingLabel(), downloadShippingLabelsBulk(), getOrder(), getOrders(), Order, packLazadaOrder() (+82 more)
+Nodes (90): BulkShippingLabelResult, downloadLazadaAwb(), downloadLazadaAwbsBulk(), downloadShippingLabel(), downloadShippingLabelsBulk(), getOrder(), getOrders(), Order (+82 more)
 
-### Community 1 - "Order"
-Cohesion: 0.06
-Nodes (13): Order, OrderItem, {closure#1}(), {closure#5}(), {closure#8}(), {closure#9}(), OrderService, {closure#1}() (+5 more)
+### Community 1 - "OrderService"
+Cohesion: 0.07
+Nodes (8): SyncShopeeOrders, {closure#1}(), {closure#5}(), {closure#8}(), {closure#9}(), OrderService, OrderOrderedAtTest, ShopeeOrderQuantityTest
 
 ### Community 2 - "dashboard.dart"
 Cohesion: 0.03
 Nodes (68): aggregatedItems, body, cancelReasons, CancelReasonStat, cancelReasonsTotal, commentCount, comments, completion (+60 more)
 
 ### Community 3 - "client.ts"
-Cohesion: 0.04
-Nodes (62): api, AppNotification, axios, AxiosRequestConfig, BulkShippingLabelResult, cacheKeyFromConfig(), completePickListItem(), DashboardData (+54 more)
+Cohesion: 0.05
+Nodes (54): acceptWorkspaceInvite(), AppNotification, axios, AxiosRequestConfig, cacheKeyFromConfig(), DashboardData, DashboardWorkspace, deleteNotification() (+46 more)
 
 ### Community 4 - "User"
 Cohesion: 0.07
 Nodes (5): User, AuthenticationTest, ChangePasswordTest, LazadaOrderManagementTest, PickListCompletionTest
 
-### Community 5 - "ShopeeToken"
-Cohesion: 0.05
-Nodes (7): {closure#1}(), {closure#2}(), ShopeeOAuthState, ShopeeToken, LazadaAuthControllerTest, SecurityHardeningTest, ShopeeOAuthTest
-
-### Community 6 - "Illuminate\Database\Eloquent\Relations\BelongsTo"
-Cohesion: 0.09
-Nodes (4): InventoryLog, PickListCommentRead, {closure#1}(), WorkspaceActivityLog
-
-### Community 7 - "LazadaService"
-Cohesion: 0.07
-Nodes (5): LazadaService, getOrderDetail(), LazadaSellerNameTest, LazadaTokenRefreshTest, Data Stored (Both Platforms Use Same `Order` Model)
+### Community 5 - "ShopeeStore"
+Cohesion: 0.04
+Nodes (11): {closure#2}(), ShopeeOAuthState, {closure#1}(), ShopeeStore, ShopeeToken, LazadaAuthControllerTest, PromotionTest, SecurityHardeningTest (+3 more)
 
 ### Community 8 - "pick_list_screen.dart"
 Cohesion: 0.04
@@ -252,7 +248,7 @@ Nodes (51): address, addressId, buyerUsername, cancelReason, city, currency, cur
 
 ### Community 11 - "team_screen.dart"
 Cohesion: 0.04
-Nodes (42): _AppShell, _SalesChart, _StatCard, _StoreCard, _TrendDayToggle, _FilterChipRow, _InfoRow, _OrderDetailSheet (+34 more)
+Nodes (42): _AppDrawer, _SalesChart, _StatCard, _StoreCard, _TrendDayToggle, _FilterChipRow, _InfoRow, _OrderDetailSheet (+34 more)
 
 ### Community 12 - "DashboardController.php"
 Cohesion: 0.07
@@ -260,19 +256,19 @@ Nodes (12): {closure#1}(), {closure#11}(), {closure#15}(), {closure#24}(), {clos
 
 ### Community 13 - "LogisticsService"
 Cohesion: 0.06
-Nodes (6): LogisticsService, PackingListPdfService, ArrangeShipmentTest, ShippingLabelTest, Current State Analysis, Data Usage Points (Read Access)
+Nodes (8): LogisticsService, PackingListPdfService, ArrangeShipmentTest, getOrderDetail(), ShippingLabelTest, Current State Analysis, Data Stored (Both Platforms Use Same `Order` Model), Data Usage Points (Read Access)
 
 ### Community 14 - "Illuminate\Http\Request"
 Cohesion: 0.09
-Nodes (5): LazadaOrderController, NotificationController, OrderController, PromotionController, ShopeeAuthController
+Nodes (6): LazadaOrderController, OrderController, ProductController, PromotionController, ShopeeAuthController, [x] Task 2.2: OAuth state model & controller platform scoping
 
 ### Community 15 - "ProductService.php"
-Cohesion: 0.05
-Nodes (16): ProductVariant, {closure#1}(), {closure#20}(), {closure#23}(), {closure#24}(), {closure#27}(), {closure#28}(), {closure#29}() (+8 more)
+Cohesion: 0.06
+Nodes (9): {closure#1}(), {closure#28}(), {closure#29}(), {closure#30}(), {closure#33}(), {closure#37}(), {closure#38}(), {closure#4}() (+1 more)
 
 ### Community 16 - "workspace.dart"
-Cohesion: 0.07
-Nodes (29): action, ActivityEntry, ActivityUser, createdAt, currentPage, data, email, expiresAt (+21 more)
+Cohesion: 0.04
+Nodes (43): action, 0, action, createdAt, email, fromJson, id, meta (+35 more)
 
 ### Community 17 - "package:flutter/material.dart"
 Cohesion: 0.05
@@ -280,23 +276,27 @@ Nodes (25): SpeciesResult, build, _buildBadge, _getConfidenceColor, index, _laun
 
 ### Community 18 - "TestCase"
 Cohesion: 0.07
-Nodes (9): WorkspaceMember, DebugTest, ExampleTest, ProductGroupedFilterTest, PurgeBuyerDataTest, WorkspaceAccessTest, WorkspaceActivityLogTest, WorkspaceNotificationTest (+1 more)
+Nodes (7): DebugTest, ExampleTest, {closure#4}(), PurgeBuyerDataTest, WorkspaceActivityLogTest, WorkspaceNotificationTest, TestCase
 
 ### Community 19 - "dashboard_screen.dart"
 Cohesion: 0.05
 Nodes (35): notificationProvider, storeProvider, bgColor, build, _buildCancelReasonsSection, _buildContent, _buildSalesTrendSection, _buildStatCards (+27 more)
 
 ### Community 20 - "react"
-Cohesion: 0.08
-Nodes (35): getDashboardStats(), getStores(), MarketplaceType, ShopeeStore, App(), AppShell(), ErrorBoundary, Props (+27 more)
-
-### Community 22 - "Illuminate\Bus\Queueable"
 Cohesion: 0.11
-Nodes (5): OrderStatusChangedNotification, OrderUrgentNotification, PickListCommentNotification, StoreReauthNotification, TeamActivityNotification
+Nodes (30): api, getDashboardStats(), MarketplaceType, ShopeeStore, App(), AppShell(), getNavItems(), Layout() (+22 more)
+
+### Community 21 - "WorkspaceMember"
+Cohesion: 0.09
+Nodes (7): Workspace, WorkspaceMember, {closure#1}(), {closure#4}(), up(), PickListCommentTest, WorkspaceAccessTest
+
+### Community 22 - "Illuminate\Notifications\Notification"
+Cohesion: 0.11
+Nodes (4): OrderUrgentNotification, PickListCommentNotification, StoreReauthNotification, TeamActivityNotification
 
 ### Community 23 - "Stock.tsx"
-Cohesion: 0.10
-Nodes (31): getProductsGrouped(), GroupedProductGroup, Product, pullProducts(), pushProducts(), syncProducts(), updatePriceBySku(), updateStockAndPrice() (+23 more)
+Cohesion: 0.08
+Nodes (37): changePassword(), deleteWorkspaceCredentials(), getProductsGrouped(), getWorkspaceCredentials(), GroupedProductGroup, Product, pullProducts(), pushProducts() (+29 more)
 
 ### Community 24 - "Promotions.tsx"
 Cohesion: 0.08
@@ -307,28 +307,28 @@ Cohesion: 0.07
 Nodes (8): AuthController, ChangePasswordRequest, LoginRequest, RegisterRequest, UpdatePriceRequest, UpdateStockPriceRequest, UpdateStockRequest, UserResource
 
 ### Community 26 - "StoreHealthService"
-Cohesion: 0.05
-Nodes (25): NotificationGeneratorService, StoreHealthService, {closure#2}(), StoreHealthNotificationTest, StoreHealthServiceTest, 1. Executive Summary & Phased Sizing Matrix, 2. Architecture & Execution Dependency Graph, 7. Rollback & Disaster Recovery Strategy (+17 more)
+Cohesion: 0.18
+Nodes (7): NotificationGeneratorService, StoreHealthService, Phase 3: Shared Domain Health Service, Notifications & API Hardening (P2), [x] Task 3.1: Extract unified `StoreHealthService`, [x] Task 3.2: Refactor `ShopeeAuthController` to use `StoreHealthService`, [x] Task 3.3: Wire `NotificationGeneratorService` & scheduler, [x] Task 3.5: Sanitize vacation response & disconnect cache reset
 
 ### Community 27 - "product.dart"
 Cohesion: 0.05
 Nodes (36): categoryId, copyWith, currentPage, data, fromJson, grouped, GroupedProductGroup, GroupedResponse (+28 more)
 
 ### Community 28 - "KeepAlivePages.tsx"
-Cohesion: 0.11
-Nodes (24): acceptWorkspaceInvite(), changePassword(), deleteWorkspaceCredentials(), getWorkspace(), getWorkspaceActivity(), getWorkspaceCredentials(), inviteWorkspaceMember(), removeWorkspaceMember() (+16 more)
+Cohesion: 0.09
+Nodes (28): completePickListItem(), deletePickListComment(), fetchPickListPhotoObjectUrl(), getPendingPickList(), getTodayPickList(), markPickListCommentsRead(), PickListKind, postPickListComment() (+20 more)
 
 ### Community 29 - "stock_screen.dart"
 Cohesion: 0.07
-Nodes (31): productProvider, build, _buildSimpleFields, _buildVariantRow, createState, _debounce, dispose, _EditStockSheet (+23 more)
+Nodes (30): productProvider, _buildSimpleFields, _buildVariantRow, createState, _debounce, dispose, _EditStockSheet, _EditStockSheetState (+22 more)
 
 ### Community 30 - "Dashboard.tsx"
-Cohesion: 0.10
-Nodes (35): Phase 4 Verification Result (2026-10-08), Phase 4: Web Dashboard State Consolidation & UI Hardening (P2), [x] Task 4.2: HealthBadge unhide & fallback status styles, [x] Task 4.3: Synchronize store actions with topbar `StoreContext`, CancelReasonStat, DashboardStats, getAuthUrl(), getLazadaAuthUrl() (+27 more)
+Cohesion: 0.11
+Nodes (35): [x] Task 5.3: Store card action menu in Flutter Dashboard, CancelReasonStat, DashboardStats, disconnectStore(), getAuthUrl(), getLazadaAuthUrl(), getStores(), reauthorizeStore() (+27 more)
 
 ### Community 32 - "Product"
-Cohesion: 0.19
-Nodes (3): Product, {closure#10}(), ProductService
+Cohesion: 0.17
+Nodes (5): StoreNotActiveException, Product, {closure#10}(), ProductService, [x] Task 3.6: Deduplicate `callWithTokenRetry` helper across services
 
 ### Community 33 - "dashboard_provider.dart"
 Cohesion: 0.09
@@ -336,7 +336,7 @@ Nodes (16): completePickListItem, DashboardNotifier, deletePickListComment, fetc
 
 ### Community 34 - "orders_screen.dart"
 Cohesion: 0.08
-Nodes (23): orderProvider, build, _cancelReasonLabels, createState, dispose, _formatCancelReason, items, label (+15 more)
+Nodes (26): orderProvider, build, _cancelReasonLabels, createState, dispose, _formatCancelReason, initState, items (+18 more)
 
 ### Community 35 - "plant_id_screen.dart"
 Cohesion: 0.09
@@ -347,16 +347,20 @@ Cohesion: 0.08
 Nodes (17): apiClient, createDio, dio, endsWith, _handlingUnauthorized, _isAuthEndpoint, _apiKey, _baseUrl (+9 more)
 
 ### Community 37 - "WorkspaceAccess"
-Cohesion: 0.11
-Nodes (8): PickListCommentController, PickListCompletionController, {closure#1}(), {closure#4}(), Controller, WorkspaceAccess, WorkspaceActivityLogger, Workspace Isolation
+Cohesion: 0.14
+Nodes (6): {closure#1}(), LazadaAuthController, PickListCompletionController, WorkspaceAccess, WorkspaceActivityLogger, Workspace Isolation
 
 ### Community 38 - "ShopeeService"
-Cohesion: 0.09
-Nodes (3): {closure#1}(), {closure#2}(), ShopeeService
+Cohesion: 0.14
+Nodes (3): {closure#1}(), ShopeeService, [x] Task 1.2: Scope Shopee token refresh to store workspace
+
+### Community 39 - "ShopeeTokenRefreshTest.php"
+Cohesion: 0.10
+Nodes (4): {closure#2}(), {closure#3}(), {closure#4}(), auth()
 
 ### Community 40 - "app.dart"
 Cohesion: 0.04
-Nodes (28): _AppDrawer, child, createState, _currentIndex, _DrawerAppVersion, _DrawerAppVersionState, _go, initState (+20 more)
+Nodes (28): _AppShell, child, createState, _currentIndex, _DrawerAppVersion, _DrawerAppVersionState, _go, initState (+20 more)
 
 ### Community 41 - "order_provider.dart"
 Cohesion: 0.08
@@ -376,19 +380,23 @@ Nodes (24): accent, accentLight, AppColors, background, border, buildAppTheme, d
 
 ### Community 47 - "login_screen.dart"
 Cohesion: 0.08
-Nodes (16): createState, dispose, _emailController, _formKey, LoginScreen, _LoginScreenState, _obscurePassword, _passwordController (+8 more)
+Nodes (14): createState, dispose, _emailController, _formKey, LoginScreen, _LoginScreenState, _obscurePassword, _passwordController (+6 more)
 
 ### Community 48 - "Illuminate\Database\Schema\Blueprint"
 Cohesion: 0.11
 Nodes (18): {closure#1}(), {closure#2}(), {closure#3}(), {closure#1}(), {closure#2}(), {closure#3}(), {closure#1}(), {closure#2}() (+10 more)
 
-### Community 49 - "UpdateShopeeStockJob"
-Cohesion: 0.27
+### Community 49 - "Illuminate\Bus\Queueable"
+Cohesion: 0.29
 Nodes (3): SyncShopeeStoreJob, UpdateShopeePriceJob, UpdateShopeeStockJob
 
-### Community 50 - "WorkspaceConfig"
-Cohesion: 0.10
-Nodes (10): WorkspaceCredentialController, WorkspaceConfig, [x] Task 3.4: Harden `WorkspaceCredentialController`, 1. Migration & Model, 2. Config Resolution Service, 3. Update ShopeeService & LazadaService, 4. API Controller: `WorkspaceCredentialController`, 5. Update Existing Controllers (+2 more)
+### Community 50 - "WorkspaceCredentialController"
+Cohesion: 0.13
+Nodes (10): WorkspaceCredentialController, SecurityHeaders, [x] Task 3.4: Harden `WorkspaceCredentialController`, 1. Migration & Model, 2. Config Resolution Service, 3. Update ShopeeService & LazadaService, 4. API Controller: `WorkspaceCredentialController`, 5. Update Existing Controllers (+2 more)
+
+### Community 51 - "LazadaTokenRefreshTest"
+Cohesion: 0.11
+Nodes (3): LazadaSellerNameTest, LazadaTokenRefreshTest, [x] Task 6.1: Scheduled token refresh command filter tests
 
 ### Community 53 - "frontend/package.json"
 Cohesion: 0.11
@@ -399,12 +407,12 @@ Cohesion: 0.11
 Nodes (17): AppUser, AuthNotifier, AuthState, clearError, copyWith, error, errorDetail, forceLocalLogout (+9 more)
 
 ### Community 55 - "EcomPHP\Shopee\Client"
-Cohesion: 0.13
-Nodes (18): {closure#1}(), {closure#10}(), {closure#11}(), {closure#12}(), {closure#13}(), {closure#14}(), {closure#15}(), {closure#16}() (+10 more)
+Cohesion: 0.19
+Nodes (16): {closure#1}(), {closure#10}(), {closure#11}(), {closure#12}(), {closure#13}(), {closure#14}(), {closure#15}(), {closure#16}() (+8 more)
 
-### Community 56 - "ShopeeStore"
+### Community 56 - "Order"
 Cohesion: 0.08
-Nodes (5): SyncShopeeOrders, ShopeeStore, DashboardTest, PromotionTest, ShopeeVacationModeTest
+Nodes (8): Order, OrderItem, BulkShippingLabelTest, {closure#1}(), DashboardTest, {closure#1}(), OrderListTest, cancelOrder()
 
 ### Community 57 - "compilerOptions"
 Cohesion: 0.11
@@ -415,12 +423,12 @@ Cohesion: 0.11
 Nodes (18): actionType, AppNotification, AppNotificationData, category, createdAt, data, fromJson, id (+10 more)
 
 ### Community 59 - "Illuminate\Console\Command"
-Cohesion: 0.11
-Nodes (6): BackfillOrderOrderedAt, BackfillShopeeOrderQuantities, CleanupPickListPhotos, RefreshLazadaTokens, SyncLazadaOrders, SyncShopeeProducts
+Cohesion: 0.13
+Nodes (5): BackfillOrderOrderedAt, BackfillShopeeOrderQuantities, CleanupPickListPhotos, RefreshLazadaTokens, SyncShopeeProducts
 
 ### Community 60 - "ShopeeResponseHelper"
-Cohesion: 0.17
-Nodes (3): ShopeeResponseHelper, {closure#39}(), {closure#40}()
+Cohesion: 0.15
+Nodes (4): ShopeeResponseHelper, {closure#39}(), {closure#40}(), {closure#45}()
 
 ### Community 61 - "compilerOptions"
 Cohesion: 0.11
@@ -430,17 +438,25 @@ Nodes (17): compilerOptions, allowImportingTsExtensions, erasableSyntaxOnly, lib
 Cohesion: 0.16
 Nodes (10): main(), print_step(), remote_git_sync(), require_safe_value(), run_remote_command(), Goal, Notes, Plan: Create New Repository from Current Branch (+2 more)
 
-### Community 63 - "PickListComment"
-Cohesion: 0.20
-Nodes (4): {closure#12}(), {closure#13}(), {closure#1}(), PickListComment
+### Community 63 - "Controller"
+Cohesion: 0.14
+Nodes (4): NotificationController, {closure#1}(), {closure#4}(), Controller
 
-### Community 64 - "Workspace"
-Cohesion: 0.09
-Nodes (6): Workspace, {closure#1}(), {closure#4}(), up(), Database Schema, Key Relationships
+### Community 65 - "LazadaOrderService"
+Cohesion: 0.08
+Nodes (6): SyncLazadaOrders, {closure#1}(), {closure#2}(), {closure#4}(), {closure#7}(), LazadaOrderService
 
 ### Community 66 - "authProvider"
 Cohesion: 0.13
 Nodes (11): build, MyStoresApp, authProvider, build, _submit, didChangeAppLifecycleState, build, _showItemSheet (+3 more)
+
+### Community 67 - "ProductVariant"
+Cohesion: 0.14
+Nodes (7): ProductVariant, {closure#20}(), {closure#23}(), {closure#24}(), {closure#27}(), {closure#31}(), {closure#32}()
+
+### Community 69 - "SyncShopeeOrderJob"
+Cohesion: 0.28
+Nodes (3): SyncShopeeOrderJob, {closure#1}(), ShopeeOrderPushTest
 
 ### Community 70 - "AppServiceProvider.php"
 Cohesion: 0.14
@@ -458,9 +474,9 @@ Nodes (11): AuthStorage, clearAll, deleteToken, deleteUser, getToken, getUser, s
 Cohesion: 0.14
 Nodes (12): copyWith, deleteNotification, error, fetchNotifications, fetchUnreadCount, isLoading, markAllAsRead, markAsRead (+4 more)
 
-### Community 76 - "LazadaProductUpdateTest.php"
-Cohesion: 0.13
-Nodes (3): {closure#4}(), LazadaProductUpdateTest, NeedsPushStockTest
+### Community 75 - "Phase 3 Verification Result (2026-10-08)"
+Cohesion: 0.29
+Nodes (7): Phase 3 Verification Result (2026-10-08), Phase 4 Verification Result (2026-10-08), Phase 4: Web Dashboard State Consolidation & UI Hardening (P2), [x] Task 4.1: Web Dashboard `isOwner` fail-safe, [x] Task 4.2: HealthBadge unhide & fallback status styles, [x] Task 4.3: Synchronize store actions with topbar `StoreContext`, HealthBadge()
 
 ### Community 79 - "plant_identification_result.dart"
 Cohesion: 0.15
@@ -486,13 +502,9 @@ Nodes (17): 1. Anonymize vs Hard Delete, 2. raw_response Handling, 3. Platform S
 Cohesion: 0.18
 Nodes (6): add, ApiLog, clear, dump, _entries, _maxEntries
 
-### Community 87 - "StoreNotActiveException"
-Cohesion: 0.11
-Nodes (9): ProductAuthorizationException, StoreNotActiveException, {closure#45}(), {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}(), [x] Task 3.6: Deduplicate `callWithTokenRetry` helper across services (+1 more)
-
-### Community 88 - "workspace_activity.dart"
-Cohesion: 0.12
-Nodes (14): 0, action, createdAt, email, fromJson, id, meta, name (+6 more)
+### Community 87 - "bootstrap/app.php"
+Cohesion: 0.14
+Nodes (6): ProductAuthorizationException, {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}(), PlantNetException
 
 ### Community 89 - "composer.json"
 Cohesion: 0.22
@@ -514,10 +526,6 @@ Nodes (5): build, onOrganChanged, _organs, OrganSelector, selectedOrgan
 Cohesion: 0.28
 Nodes (3): {closure#3}(), PurgeOldBuyerData, Task List for Implementation Agent
 
-### Community 94 - "RefreshShopeeTokens.php"
-Cohesion: 0.12
-Nodes (9): RefreshShopeeTokens, Phase 1: Core Token Lifecycle & Concurrency Engine (P0), Phase 1 Verification Result (2026-10-08), [x] Task 1.1: Fix Carbon operand sign for store health badge, [x] Task 1.2: Scope Shopee token refresh to store workspace, [x] Task 1.3: Concurrency lock for Lazada single-use token refresh, [x] Task 1.4: Track Lazada refresh failures and extend refresh token expiry, [x] Task 1.5: Add platform filter to `shopee:refresh-tokens` (+1 more)
-
 ### Community 95 - "require"
 Cohesion: 0.25
 Nodes (7): require, dompdf/dompdf, ecomphp/shopee-php, laravel/framework, laravel/sanctum, laravel/tinker, php
@@ -534,9 +542,13 @@ Nodes (5): AppShellScope, of, openDrawer, scaffoldKey, updateShouldNotify
 Cohesion: 0.29
 Nodes (7): pestphp/pest-plugin, php-http/discovery, config, allow-plugins, optimize-autoloader, preferred-install, sort-packages
 
-### Community 103 - "LazadaAuthController"
-Cohesion: 0.14
-Nodes (9): LazadaAuthController, Phase 2: OAuth Security, Platform Isolation & State Migration (P1), Phase 2 Verification Result (2026-10-08), [x] Task 2.1: Database migration: Add `platform` column to `shopee_oauth_states`, [x] Task 2.2: OAuth state model & controller platform scoping, [x] Task 2.3: Seller_id mismatch validation guard in Lazada reauth callback, [x] Task 2.4: Cross-platform store route guards, [x] Task 2.5: Guard callback expire_in & retain Shopee refresh expiry (+1 more)
+### Community 102 - "PickListPhotoCompressor"
+Cohesion: 0.13
+Nodes (3): PickListPhotoCompressor, UserFactory, PickListPhotoCompressorTest
+
+### Community 103 - "Store Linking Feature — Fix Plan & Implementation Roadmap"
+Cohesion: 0.11
+Nodes (17): 1. Executive Summary & Phased Sizing Matrix, 2. Architecture & Execution Dependency Graph, 7. Rollback & Disaster Recovery Strategy, Phase 2: OAuth Security, Platform Isolation & State Migration (P1), Phase 5: Mobile Parity, Action Sheet & Serialization Resiliency (P3), Phase 5 Verification Result (2026-10-08), Phase 6: End-to-End Regression Gate & Remaining Token Tests (Quality), Phase 6 Verification Result (2026-10-08) (+9 more)
 
 ### Community 104 - "devDependencies"
 Cohesion: 0.29
@@ -590,6 +602,10 @@ Nodes (3): autoload-dev, psr-4, Tests\\
 Cohesion: 0.67
 Nodes (3): extra, laravel, dont-discover
 
+### Community 163 - "PickListComment"
+Cohesion: 0.10
+Nodes (6): {closure#12}(), {closure#13}(), {closure#1}(), PickListCommentController, PickListComment, WorkspaceNotificationService
+
 ### Community 164 - "Plan: Remove Sandbox Mode - Test on Production Server"
 Cohesion: 0.18
 Nodes (10): 1. Update `backend/.env` with Production Values (for local reference / deploy sync), 2. Update Config Defaults, 3. Test Workflow: On Production Server, Current State, Files to Modify, Goal, Plan: Remove Sandbox Mode - Test on Production Server, Required Changes (+2 more)
@@ -626,25 +642,29 @@ Nodes (5): Backend (`backend/`), Deploy (`deploy/`), Frontend (`frontend/`), Mob
 Cohesion: 0.40
 Nodes (5): Deploy, Deployment, Prerequisites (one-time), Running Queue Workers, What the Deploy Script Does
 
+### Community 178 - "Phase 1: Core Token Lifecycle & Concurrency Engine (P0)"
+Cohesion: 0.29
+Nodes (7): Phase 1: Core Token Lifecycle & Concurrency Engine (P0), Phase 1 Verification Result (2026-10-08), [x] Task 1.1: Fix Carbon operand sign for store health badge, [x] Task 1.3: Concurrency lock for Lazada single-use token refresh, [x] Task 1.4: Track Lazada refresh failures and extend refresh token expiry, [x] Task 1.5: Add platform filter to `shopee:refresh-tokens`, [x] Task 1.6: Prevent scheduler overlaps in background jobs
+
 ## Knowledge Gaps
-- **984 isolated node(s):** `$schema`, `name`, `type`, `description`, `keywords` (+979 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1481 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **73 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **984 isolated node(s):** `1. Executive Summary & Phased Sizing Matrix`, `2. Architecture & Execution Dependency Graph`, `[x] Task 1.1: Fix Carbon operand sign for store health badge`, `[x] Task 1.4: Track Lazada refresh failures and extend refresh token expiry`, `[x] Task 1.6: Prevent scheduler overlaps in background jobs` (+979 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1487 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **74 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ShopeeStore` connect `ShopeeStore` to `Order`, `User`, `ShopeeToken`, `Illuminate\Database\Eloquent\Relations\BelongsTo`, `LazadaService`, `DashboardController.php`, `LogisticsService`, `Illuminate\Http\Request`, `.log`, `ProductService.php`, `TestCase`, `PickListCommentTest`, `Illuminate\Bus\Queueable`, `StoreHealthService`, `LazadaPromotionService`, `Product`, `WorkspaceNotificationService`, `WorkspaceAccess`, `ShopeeService`, `WorkspaceNotificationService.php`, `ShopeeTokenRefreshTest.php`, `PickListCompletion`, `ShopeePromotionService`, `UpdateShopeeStockJob`, `ShopeeTokenRefreshTest`, `EcomPHP\Shopee\Client`, `Illuminate\Console\Command`, `ShopeeResponseHelper`, `Workspace`, `.ensureFreshToken`, `PromotionController.php`, `SyncShopeeOrderJob`, `LazadaOrderService`, `LazadaProductUpdateTest.php`, `LazadaOrderService.php`, `BulkShippingLabelTest`, `LazadaBulkAwbTest`, `PromotionTest.php`, `LazadaAuthController`, `ShopeeOrderQuantityTest`?**
-  _High betweenness centrality (0.369) - this node is a cross-community bridge._
-- **What connects `$schema`, `name`, `type` to the rest of the system?**
+- **Why does `ShopeeStore` connect `ShopeeStore` to `OrderService`, `User`, `Illuminate\Database\Eloquent\Relations\BelongsTo`, `LazadaService`, `DashboardController.php`, `LogisticsService`, `.log`, `Illuminate\Http\Request`, `ProductService.php`, `TestCase`, `WorkspaceMember`, `Illuminate\Notifications\Notification`, `StoreHealthService`, `LazadaPromotionService`, `Product`, `PickListComment`, `WorkspaceAccess`, `ShopeeService`, `ShopeeTokenRefreshTest.php`, `PickListCompletion`, `ShopeePromotionService`, `Illuminate\Bus\Queueable`, `ShopeeTokenRefreshTest`, `ProductGroupedFilterTest`, `EcomPHP\Shopee\Client`, `Order`, `Illuminate\Console\Command`, `ShopeeResponseHelper`, `Controller`, `Illuminate\Database\Eloquent\Relations\HasMany`, `LazadaOrderService`, `PromotionController.php`, `SyncShopeeOrderJob`, `StoreHealthServiceTest`, `LazadaProductUpdateTest`, `ArrangeShipmentTest.php`, `StoreHealthNotificationTest`, `LazadaBulkAwbTest`, `PromotionTest.php`, `NeedsPushStockTest`?**
+  _High betweenness centrality (0.399) - this node is a cross-community bridge._
+- **Are the 3 inferred relationships involving `User` (e.g. with `{closure#1}()` and `.makeStore()`) actually correct?**
+  _`User` has 3 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `1. Executive Summary & Phased Sizing Matrix`, `2. Architecture & Execution Dependency Graph`, `[x] Task 1.1: Fix Carbon operand sign for store health badge` to the rest of the system?**
   _984 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `UnifiedOrdersPanel.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.06065949567977429 - nodes in this community are weakly interconnected._
-- **Why does `disconnectStore()` connect `StoreHealthService` to `client.ts`, `Dashboard.tsx`?**
-  _High betweenness centrality (0.199) - this node is a cross-community bridge._
-- **Should `Order` be split into smaller, more focused modules?**
-  _Cohesion score 0.05913461538461538 - nodes in this community are weakly interconnected._
-- **Should `dashboard.dart` be split into smaller, more focused modules?**
-  _Cohesion score 0.0273972602739726 - nodes in this community are weakly interconnected._
-- **Should `client.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.042624042624042624 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06013048845000882 - nodes in this community are weakly interconnected._
+- **Why does `[x] Task 5.3: Store card action menu in Flutter Dashboard` connect `Dashboard.tsx` to `StoreHealthService`, `Store Linking Feature — Fix Plan & Implementation Roadmap`?**
+  _High betweenness centrality (0.206) - this node is a cross-community bridge._
+- **Should `OrderService` be split into smaller, more focused modules?**
+  _Cohesion score 0.0708245243128964 - nodes in this community are weakly interconnected._
+- **Why does `disconnectStore()` connect `Dashboard.tsx` to `client.ts`?**
+  _High betweenness centrality (0.205) - this node is a cross-community bridge._
