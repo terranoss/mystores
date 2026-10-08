@@ -1006,7 +1006,7 @@ class ProductService
                         try {
                             $this->pullItemChunk($client, $store, $chunk, $onProgress, $onError);
                         } catch (\Exception $e) {
-                            if ($e instanceof AuthorizationException || ($e instanceof ShopeeException && $this->isTokenError($e))) {
+                            if ($e instanceof AuthorizationException || ($e instanceof ShopeeException && $this->shopee->isTokenError($e))) {
                                 throw $e;
                             }
                             if ($this->isRateLimitError($e)) {
@@ -1086,7 +1086,7 @@ class ProductService
                             );
                         }
                     } catch (\Exception $e) {
-                        if ($this->isRateLimitError($e) || ($e instanceof AuthorizationException) || ($e instanceof ShopeeException && $this->isTokenError($e))) {
+                        if ($this->isRateLimitError($e) || ($e instanceof AuthorizationException) || ($e instanceof ShopeeException && $this->shopee->isTokenError($e))) {
                             throw $e;
                         }
                         if ($onError) {
@@ -1098,7 +1098,7 @@ class ProductService
                     $onProgress($product);
                 }
             } catch (\Exception $e) {
-                if ($this->isRateLimitError($e) || ($e instanceof AuthorizationException) || ($e instanceof ShopeeException && $this->isTokenError($e))) {
+                if ($this->isRateLimitError($e) || ($e instanceof AuthorizationException) || ($e instanceof ShopeeException && $this->shopee->isTokenError($e))) {
                     throw $e;
                 }
                 if ($onError) {
@@ -1139,47 +1139,16 @@ class ProductService
 
     /**
      * Run a Shopee API call; on Invalid access_token, refresh once and retry before disconnecting.
+     *
+     * Delegates to ShopeeService so refresh/retry semantics live in one place.
      */
     private function callWithTokenRetry(ShopeeStore $store, callable $callback): mixed
     {
-        $client = $this->shopee->forStore($store);
-
-        try {
-            return $callback($client);
-        } catch (AuthorizationException | ShopeeException $e) {
-            if ($e instanceof ShopeeException && !$this->isTokenError($e)) {
-                throw $e;
-            }
-
-            try {
-                $this->shopee->clearStoreCache($store);
-                $this->shopee->refreshStoreToken($store);
-                $store->unsetRelation('token');
-                $store->load('token');
-                $client = $this->shopee->forStore($store);
-
-                return $callback($client);
-            } catch (AuthorizationException | ShopeeException $retryError) {
-                if ($retryError instanceof ShopeeException && !$this->isTokenError($retryError)) {
-                    throw $retryError;
-                }
-                $this->shopee->invalidateStore($store);
-                throw new StoreNotActiveException(
-                    "Store #{$store->id} token expired. Please re-link from the Dashboard. ({$retryError->getMessage()})"
-                );
-            } catch (\Exception $refreshError) {
-                $this->shopee->invalidateStore($store);
-                throw new StoreNotActiveException(
-                    "Store #{$store->id} token expired. Please re-link from the Dashboard. ({$refreshError->getMessage()})"
-                );
-            }
-        }
-    }
-
-    private function isTokenError(ShopeeException $e): bool
-    {
-        $msg = strtolower($e->getMessage());
-        return str_contains($msg, 'access_token') || str_contains($msg, 'token expired');
+        return $this->shopee->callWithTokenRetry(
+            $store,
+            $callback,
+            fn (string $message): \Throwable => new StoreNotActiveException($message)
+        );
     }
 
     /**
