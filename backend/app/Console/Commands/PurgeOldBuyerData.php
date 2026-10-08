@@ -62,17 +62,6 @@ class PurgeOldBuyerData extends Command
         
         $totalCount = $query->count();
         
-        // Debug output
-        if ($this->option('dry-run')) {
-            $this->info("DEBUG: Found {$totalCount} orders matching criteria");
-            if ($totalCount > 0) {
-                $sampleOrders = $query->limit(5)->get(['id', 'created_at', 'buyer_username']);
-                foreach ($sampleOrders as $order) {
-                    $this->info("DEBUG: Order ID {$order->id}, created_at: {$order->created_at}, buyer: {$order->buyer_username}");
-                }
-            }
-        }
-        
         if ($totalCount === 0) {
             $this->info("No orders found matching purge criteria.");
             return 0;
