@@ -547,4 +547,53 @@ class ShopeeOAuthTest extends TestCase
             $response->headers->get('Location')
         );
     }
+
+    public function test_shopee_store_actions_reject_non_shopee_stores(): void
+    {
+        $user = User::factory()->create();
+        $lazadaStore = ShopeeStore::create([
+            'user_id' => $user->id,
+            'shop_id' => 88888,
+            'shop_name' => 'Lazada Store',
+            'platform' => 'lazada',
+            'region' => 'MY',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->postJson("/api/shopee/stores/{$lazadaStore->id}/reauthorize")
+            ->assertStatus(400)
+            ->assertJson(['message' => 'This store is not a Shopee store.']);
+
+        $this->actingAs($user)
+            ->postJson("/api/shopee/stores/{$lazadaStore->id}/disconnect")
+            ->assertStatus(400)
+            ->assertJson(['message' => 'This store is not a Shopee store.']);
+
+        $this->actingAs($user)
+            ->deleteJson("/api/shopee/stores/{$lazadaStore->id}", [
+                'confirmation' => 'DELETE STORE DATA',
+            ])
+            ->assertStatus(400)
+            ->assertJson(['message' => 'This store is not a Shopee store.']);
+    }
+
+    public function test_shopee_callback_rejects_state_from_different_platform(): void
+    {
+        $user = User::factory()->create();
+        $rawState = 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+
+        // State created for lazada
+        ShopeeOAuthState::create([
+            'user_id' => $user->id,
+            'platform' => 'lazada',
+            'state_hash' => hash('sha256', $rawState),
+            'expires_at' => now()->addMinutes(10),
+        ]);
+
+        $response = $this->get("/api/shopee/callback?code=test&shop_id=12345&state={$rawState}");
+
+        $response->assertRedirect();
+        $this->assertStringContainsString('error=oauth_failed', $response->headers->get('Location'));
+    }
 }
