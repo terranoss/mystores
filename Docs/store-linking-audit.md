@@ -249,7 +249,7 @@ flowchart TD
 |---|---|:---:|
 | 1.1 | `ShopeeOAuthTest::test_store_listing_reports_active_for_healthy_token`, `..._reports_expiring_soon_for_token_inside_hour` | Pass |
 | 1.2 | `ShopeeTokenRefreshTest::test_refresh_store_token_uses_store_workspace_credentials` | Pass |
-| 1.3 | `LazadaTokenRefreshTest::test_second_concurrent_refresh_does_not_burn_the_rotated_token`, `..._reloads_token_relation_after_refresh` | Pass |
+| 1.3 | `LazadaTokenRefreshTest::test_second_concurrent_refresh_does_not_burn_the_rotated_token`, `..._reloads_token_relation_after_refresh`, `..._http_call_sets_timeouts_below_the_refresh_lock_ttl` | Pass |
 | 1.4 | `LazadaTokenRefreshTest::test_ensure_fresh_token_extends_refresh_and_auth_expiry`, `..._records_failure_count_on_api_error`, `..._rejects_expired_refresh_token` | Pass |
 | 1.5 | `ShopeeTokenRefreshTest::test_refresh_command_ignores_lazada_stores`, `..._refreshes_expiring_shopee_store` | Pass |
 | 1.6 | `ShopeeTokenRefreshTest::test_scheduled_sync_commands_use_overlap_mutex` | Pass |
@@ -261,6 +261,7 @@ flowchart TD
 - Task 1.2 wraps the SDK call in a new private `ShopeeService::refreshViaApi()` helper that falls back to the ambient workspace when `$store->workspace_id` is null.
 - Task 1.4 accepts both `refresh_expires_in` and `refresh_token_expires_in` from the upstream payload, defaulting to 180 days (15,552,000s).
 - Task 1.6 additionally guards `picklist:cleanup-photos`, which shares the same hourly overlapping-run risk.
+- Task 1.3 follow-up: the refresh mutex TTL is 120s (`LazadaOrderService::TOKEN_REFRESH_LOCK_SECONDS`), comfortably above the worst-case upstream round trip. `LazadaService::refreshToken` now pins `connectTimeout(10)` / `timeout(30)` explicitly so the bound does not depend on framework defaults, and a test asserts the lock TTL exceeds connect + request timeout.
 
 ---
 

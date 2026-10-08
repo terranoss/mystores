@@ -26,6 +26,19 @@ class LazadaOrderService
         'ready_to_ship',
     ];
 
+    /**
+     * Lifetime of the token-refresh mutex.
+     *
+     * Must stay comfortably above the worst case refresh round trip
+     * (LazadaService: 10s connect + 30s request) plus token persistence,
+     * otherwise the lock would lapse while the upstream call is still
+     * running and a parallel caller could burn the rotated refresh token.
+     */
+    private const TOKEN_REFRESH_LOCK_SECONDS = 120;
+
+    /** How long a caller waits for an in-flight refresh before giving up. */
+    private const TOKEN_REFRESH_BLOCK_SECONDS = 15;
+
     /** Status priority: lower = more actionable for seller. */
     private const STATUS_PRIORITY = [
         'pending' => 10,
@@ -574,10 +587,13 @@ class LazadaOrderService
             return;
         }
 
-        $lock = Cache::lock("lazada:token-refresh:store_{$store->id}", 30);
+        $lock = Cache::lock(
+            "lazada:token-refresh:store_{$store->id}",
+            self::TOKEN_REFRESH_LOCK_SECONDS
+        );
 
         try {
-            $lock->block(15, function () use ($store) {
+            $lock->block(self::TOKEN_REFRESH_BLOCK_SECONDS, function () use ($store) {
                 // Another request may have refreshed while we waited for the lock.
                 $store->unsetRelation('token');
                 $store->load('token');

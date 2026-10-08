@@ -11,6 +11,7 @@ use App\Services\PickListPhotoCleanupService;
 use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
 
@@ -161,6 +162,41 @@ class LazadaTokenRefreshTest extends TestCase
         $this->expectExceptionMessage('Lazada refresh token expired');
 
         $this->service($lazada)->ensureFreshToken($store);
+    }
+
+    public function test_refresh_token_http_call_sets_timeouts_below_the_refresh_lock_ttl(): void
+    {
+        config([
+            'lazada.app_key' => 'test-app-key',
+            'lazada.app_secret' => 'test-app-secret',
+        ]);
+
+        $options = [];
+        Http::fake(function ($request, $opts) use (&$options) {
+            $options = $opts;
+
+            return Http::response([
+                'access_token' => 'upstream-access',
+                'refresh_token' => 'upstream-refresh',
+                'expires_in' => 2592000,
+            ]);
+        });
+
+        $data = app(LazadaService::class)->refreshToken('some-refresh-token');
+
+        $this->assertSame('upstream-access', $data['access_token']);
+        $this->assertSame(10, $options['connect_timeout']);
+        $this->assertSame(30, $options['timeout']);
+
+        // The refresh mutex in LazadaOrderService must outlive the slowest
+        // possible upstream call, otherwise the lock lapses mid-refresh.
+        $lockTtl = $this->privateConstant(LazadaOrderService::class, 'TOKEN_REFRESH_LOCK_SECONDS');
+        $this->assertGreaterThan($options['connect_timeout'] + $options['timeout'], $lockTtl);
+    }
+
+    private function privateConstant(string $class, string $name): int
+    {
+        return (int) (new \ReflectionClass($class))->getConstant($name);
     }
 
     private function service(LazadaService $lazada): LazadaOrderService
