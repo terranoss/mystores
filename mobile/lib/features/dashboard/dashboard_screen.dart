@@ -517,6 +517,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 }
                               }
                             },
+                            onDisconnect: () async {
+                              final confirmed = await confirmStoreDisconnect(
+                                  context, s);
+                              if (confirmed) {
+                                await ref
+                                    .read(storeProvider.notifier)
+                                    .disconnectStore(s.id, s.platform);
+                              }
+                            },
                           ))
                       .toList(),
                 ),
@@ -690,9 +699,9 @@ class _SalesChart extends StatelessWidget {
                       '${parts[2]}/${parts[1]}',
                       style: const TextStyle(
                           fontSize: 9, color: AppColors.textMuted),
-                    );
-                  }
-                }
+    );
+  }
+}
                 return const SizedBox();
               },
             ),
@@ -729,9 +738,12 @@ class _SalesChart extends StatelessWidget {
 class _StoreCard extends StatelessWidget {
   final ShopeeStore store;
   final VoidCallback onReauthorize;
+  final VoidCallback onDisconnect;
 
   const _StoreCard(
-      {required this.store, required this.onReauthorize});
+      {required this.store,
+      required this.onReauthorize,
+      required this.onDisconnect});
 
   @override
   Widget build(BuildContext context) {
@@ -789,18 +801,57 @@ class _StoreCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Reauthorize button if needed
-            if (store.requiresReauthorization)
-              TextButton(
-                onPressed: onReauthorize,
-                style: TextButton.styleFrom(
-                    foregroundColor: AppColors.error),
-                child: const Text('Reauth',
-                    style: TextStyle(fontSize: 12)),
-              ),
+            // Action menu
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) {
+                if (value == 'disconnect') {
+                  onDisconnect();
+                } else if (value == 'reauthorize') {
+                  onReauthorize();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'disconnect',
+                  child: Text('Disconnect'),
+                ),
+                if (store.requiresReauthorization)
+                  const PopupMenuItem(
+                    value: 'reauthorize',
+                    child: Text('Reauthorize'),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+/// Shows a confirmation dialog before disconnecting a store.
+/// Returns `true` if the user confirms, `false` otherwise.
+Future<bool> confirmStoreDisconnect(
+    BuildContext context, ShopeeStore store) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Disconnect Store'),
+      content: Text(
+          'Are you sure you want to disconnect ${store.shopName ?? 'Store #${store.shopId}'}? You will need to reconnect it to sync orders and products.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: const Text('Disconnect'),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
 }

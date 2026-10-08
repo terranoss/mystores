@@ -42,6 +42,19 @@ ConnectionStatus connectionStatusFromString(String? s) {
 
 enum TokenHealth { healthy, expiringSoon, expired, unknown }
 
+/// Coerces an arbitrary JSON value into an int without throwing.
+///
+/// Upstream APIs are inconsistent about numeric id types: the same field can
+/// arrive as an `int`, a numeric `String`, or `null`. A bare `as int` cast
+/// throws a `TypeError` and takes down the whole store list render.
+int? _parseIntOrNull(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
+}
+
+int _parseIntOrZero(Object? value) => _parseIntOrNull(value) ?? 0;
+
 TokenHealth tokenHealthFromString(String? s) {
   switch (s) {
     case 'healthy':
@@ -92,8 +105,8 @@ class ShopeeStore {
 
   factory ShopeeStore.fromJson(Map<String, dynamic> json) {
     return ShopeeStore(
-      id: json['id'] as int,
-      shopId: json['shop_id'] as int,
+      id: _parseIntOrZero(json['id']),
+      shopId: _parseIntOrZero(json['shop_id']),
       platform: marketplaceFromString(json['platform'] as String?),
       shopName: json['shop_name'] as String?,
       region: json['region'] as String?,
@@ -106,7 +119,7 @@ class ShopeeStore {
       linkedAt: json['linked_at'] as String? ?? '',
       lastRefreshedAt: json['last_refreshed_at'] as String?,
       lastRefreshError: json['last_refresh_error'] as String?,
-      refreshFailureCount: json['refresh_failure_count'] as int?,
+      refreshFailureCount: _parseIntOrNull(json['refresh_failure_count']),
       accessTokenExpiresAt: json['access_token_expires_at'] as String?,
       refreshTokenExpiresAt: json['refresh_token_expires_at'] as String?,
     );

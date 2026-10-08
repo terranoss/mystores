@@ -37,7 +37,7 @@ class StatusBadge extends StatelessWidget {
         );
       case ConnectionStatus.reauthorizeRequired:
         return StatusBadge(
-          label: 'Reauthorize',
+          label: 'Reauthorize Required',
           color: AppColors.error,
           bgColor: AppColors.errorLight,
         );
@@ -49,7 +49,7 @@ class StatusBadge extends StatelessWidget {
         );
       case ConnectionStatus.missingToken:
         return StatusBadge(
-          label: 'Expired',
+          label: 'Missing Token',
           color: AppColors.error,
           bgColor: AppColors.errorLight,
         );
