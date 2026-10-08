@@ -17,18 +17,19 @@
 
 ## Overview
 
-MyStores connects to your Shopee and Lazada stores via their open platform APIs, giving you a unified dashboard to:
+MyStores connects to your Shopee and Lazada stores via their open platform APIs, providing a unified multi-marketplace management platform:
 
-- **Link** multiple Shopee and Lazada stores and manage OAuth tokens
-- **View & edit** product stock and pricing across all stores
-- **Cross-store sync** — update stock for identical SKUs across stores in one action
-- **Manage orders** — view, filter, and cancel orders from a single interface
-- **Fulfill orders** — arrange shipment, print shipping labels, pack and ship Lazada orders
-- **Pick lists** — daily pick list with photo completion and team comments
-- **Promotions** — create and manage Shopee discounts/vouchers and Lazada vouchers
-- **Team workspaces** — invite members, share store credentials, activity log, in-app notifications
-- **Monitor** store health, low stock alerts, and pending order counts
-- **Mobile app** — Flutter companion app with dashboard, stock, orders, pick lists, plant identification, and an Android home-screen widget
+### Core Features
+
+- **Store linking** — OAuth 2.0 for both platforms (Shopee & Lazada), encrypted tokens at rest (AES-256-CBC), real-time health badges, on-demand + scheduled token refresh, reauth / disconnect / unlink, and Shopee vacation mode toggle.
+- **Products & inventory** — Cross-store stock and price editing (SKU-grouped, variant support), bulk "set all stores" matching SKU, `needs_push` tracking for pending updates, queued cross-store sync (`UpdateShopeeStockJob`), and complete inventory audit logs.
+- **Orders & fulfillment** — Unified + per-platform order views, cancellation with reason codes, shipping arrangement, single and bulk shipping-label PDFs (`dompdf` + `pdf-lib`), and Lazada-specific pack / ready-to-ship / bulk AWB assignment.
+- **Pick lists** — Today's and pending pick lists, photo completions with server compression, team comments with read tracking, and hourly cleanup of unneeded photos.
+- **Promotions** — Normalized promotions dashboard supporting Shopee discounts and vouchers, plus Lazada seller vouchers (creation, activation/deactivation, and SKU assignment).
+- **Workspaces & team** — Multi-tenant team workspaces with member invites, role-scoped activity logging, in-app notifications with unread tracking, and owner-only marketplace credentials.
+- **Dashboard** — Live operational statistics, low-stock alert banners, pick-list counts, and store connection health monitoring.
+- **Mobile app (Flutter)** — Companion app covering dashboard, stock, orders, pick lists, notifications, and team, featuring PlantNet plant ID photo identification and an Android home-screen widget.
+- **Security & ops** — Laravel Sanctum token auth with expiration, HMAC webhook verification, strict multi-tenant workspace isolation, mutation rate limits, security headers, 9 scheduled background cron jobs, and 185 passing automated tests.
 
 Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA frontend, and a **Flutter** mobile app, deployed on cPanel hosting.
 
