@@ -8,7 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![Flutter](https://img.shields.io/badge/Flutter-3-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![Tests](https://img.shields.io/badge/tests-225%20passing-22c55e)](backend/tests)
+[![Tests](https://img.shields.io/badge/tests-185%20passing-22c55e)](backend/tests)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **Live:** [mystores.melur.com](https://mystores.melur.com)
@@ -28,7 +28,7 @@ MyStores connects to your Shopee and Lazada stores via their open platform APIs,
 - **Promotions** — create and manage Shopee discounts/vouchers and Lazada vouchers
 - **Team workspaces** — invite members, share store credentials, activity log, in-app notifications
 - **Monitor** store health, low stock alerts, and pending order counts
-- **Mobile app** — Flutter companion app with dashboard, stock, orders, pick lists, and an Android home-screen widget
+- **Mobile app** — Flutter companion app with dashboard, stock, orders, pick lists, plant identification, and an Android home-screen widget
 
 Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA frontend, and a **Flutter** mobile app, deployed on cPanel hosting.
 
@@ -60,8 +60,7 @@ Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA 
        │
        ▼
 ┌──────────────────────────────────────────────────────────┐
-│  Laravel Queue (database) · Scheduler (cron) · ERP API   │
-│  (pos.melur.com — auto-pull inventory)                   │
+│  Laravel Queue (database) · Scheduler (cron)              │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -76,7 +75,6 @@ Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA 
 - **Inventory logging** — every stock change is recorded in `inventory_logs` with before/after values and source tracking
 - **Automated token refresh** — API calls refresh near-expiry access tokens on demand; scheduled commands refresh tokens as a backup (Shopee every 15 minutes, Lazada hourly)
 - **OAuth replay protection** — state parameter uses `lockForUpdate()` + `consumed_at` to prevent reuse
-- **ERP auto-pull** — POS inventory is pulled from the Melur ERP API (`pos.melur.com`) on a schedule; pushing to Shopee/Lazada remains manual
 - **Convention over configuration** — follows Laravel best practices throughout
 
 ---
@@ -115,9 +113,10 @@ Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA 
 | flutter_secure_storage | Secure token storage |
 | go_router | Navigation |
 | fl_chart | Dashboard charts |
-| image_picker | Pick-list photo capture |
+| image_picker | Pick-list photo capture, plant identification photos |
 | infinite_scroll_pagination | Paginated lists |
 | home_widget | Android home-screen widget |
+| PlantNet API (external) | Plant identification (`my-api.plantnet.org/v2`), key via `--dart-define=PLANTNET_API_KEY` |
 
 ### Deploy (`deploy/`)
 | Tool | Purpose |
@@ -161,14 +160,15 @@ Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA 
 - `needs_push` flag tracks products whose local stock differs from the marketplace
 - Pagination (50 per page) with page navigation
 
-### 🔄 Cross-Store Sync & ERP
+### 🔄 Cross-Store Sync
 - When stock updates for a SKU'd product, all products with the same SKU across other stores are **queued** for automatic update
 - Simple products matched by `item_sku`; variants matched by `model_sku`
 - Sync runs asynchronously via `UpdateShopeeStockJob` (implementing `ShouldQueue`)
 - Cross-store sync does NOT trigger further sync chains (prevents infinite loops)
 - Inventory logs track sync source (`user`, `linked_sync`, `sync`, `order_webhook`)
-- **ERP connector** — auto-sync pulls inventory from the Melur POS/ERP API (`pos.melur.com`) with SKU resolution (exact sub-SKU, parent fallback); pushing to Shopee/Lazada stays manual
-- Sales compare: compare ERP sales vs marketplace orders, push missing sells, update POS prices
+- `needs_push` flag marks products whose local stock differs from the marketplace
+
+> **Removed:** the Melur POS/ERP connector (`pos.melur.com`) was deleted — the `pos_inventories` table was dropped in `2026_10_04_000001_drop_pos_inventories_table.php` and no ERP code, routes, or config remain. Any `ERP_*` documentation or env keys left in older revisions are obsolete.
 
 ### 📋 Order Management
 - View orders from all stores in a unified table, plus per-platform panels (Shopee / Lazada)
@@ -212,6 +212,13 @@ Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA 
 - Store list with health badges and linking dates
 - "Link Store" button triggers OAuth flow
 - Skeleton loading states and error+retry handling
+
+### 📱 Mobile App (Flutter)
+- Talks to the same Laravel API with a dedicated Dio client; token stored via `flutter_secure_storage`
+- Screens: login, dashboard (stats + fl_chart graphs), stock, orders, pick list, notifications, team
+- Android home-screen widget showing dashboard stats (`home_widget`)
+- Plant identification — capture a plant photo and identify it via the PlantNet API (`features/plant_id/`)
+- Riverpod providers for auth, stores, products, orders, dashboard, and notifications
 
 ### ⏰ Scheduled Tasks
 | Command | Schedule | Purpose |
@@ -355,7 +362,7 @@ mystores/
 │   │   ├── shopee.php                             # Shopee API config
 │   │   └── lazada.php                             # Lazada API config
 │   ├── database/
-│   │   └── migrations/                            # 34 migration files
+│   │   └── migrations/                            # 35 migration files
 │   ├── routes/
 │   │   ├── api.php                                # API routes
 │   │   ├── web.php                                # SPA fallback route
@@ -414,7 +421,8 @@ mystores/
 │       │   ├── orders/orders_screen.dart
 │       │   ├── pick_list/pick_list_screen.dart
 │       │   ├── notifications/notifications_screen.dart
-│       │   └── team/team_screen.dart
+│       │   ├── team/team_screen.dart
+│       │   └── plant_id/                           # PlantNet plant identification (screen, service, widgets)
 │       ├── core/
 │       │   ├── api/                               # Dio client, endpoints, error handling
 │       │   ├── models/                            # Store, product, order, dashboard, notification, workspace
@@ -443,7 +451,7 @@ mystores/
 
 ## Database Schema
 
-The database consists of **20 application tables** (plus Laravel's `jobs` and `cache` tables):
+The database consists of **18 application tables** (plus Laravel's `jobs`, `job_batches`, `failed_jobs`, `cache`, `sessions`, `password_reset_tokens`, and `personal_access_tokens` tables):
 
 | Table | Purpose |
 |---|---|
@@ -492,7 +500,7 @@ The database consists of **20 application tables** (plus Laravel's `jobs` and `c
 - Flutter 3.x with Dart >=3.4.0 (for the mobile app)
 - Shopee Partner ID & Key (from [open.shopee.com](https://open.shopee.com))
 - Lazada App Key & Secret (optional — for Lazada store linking)
-- ERP API credentials (optional — for POS inventory auto-pull)
+- PlantNet API key (optional — only for the mobile app's plant identification screen)
 
 ### 1. Clone & Install Backend
 
@@ -543,15 +551,6 @@ LAZADA_APP_KEY=your_app_key
 LAZADA_APP_SECRET=your_app_secret
 LAZADA_REDIRECT_URL=http://localhost:8000/api/lazada/callback
 LAZADA_SANDBOX=true
-
-# ERP / POS (optional — auto-pull inventory from pos.melur.com)
-ERP_API_BASE_URL=https://pos.melur.com
-ERP_API_CLIENT_ID=
-ERP_API_CLIENT_SECRET=
-ERP_API_USERNAME=
-ERP_API_PASSWORD=
-ERP_AUTO_SYNC_ENABLED=false
-ERP_LOCATION_ID=10
 
 # Optional: Google reCAPTCHA v2 on login
 RECAPTCHA_ENABLED=false
@@ -604,7 +603,7 @@ php artisan schedule:work
 ### 7. Run Tests
 
 ```bash
-# Full backend suite (225 tests)
+# Full backend suite (185 tests)
 cd backend && php artisan test
 
 # Or via Composer
@@ -832,9 +831,7 @@ This SSH's into the server and runs `queue:work --once` in a loop (up to 12 iter
 
 ## Testing
 
-The project has **225 backend PHPUnit tests** across **37 test files** (34 feature, 3 unit) covering authentication, Shopee and Lazada OAuth, store reauthorization, on-demand and scheduled token refresh, store management, cross-store sync, ERP sync, order fulfillment, shipping labels, pick lists, promotions, workspaces, buyer-data purging, and security hardening. All tests use an in-memory SQLite database, are fully deterministic, and require no external network access or real marketplace credentials.
-
-### Backend Tests (PHPUnit)
+The project has **185 backend PHPUnit tests** across **31 test files** (29 feature, 2 unit) covering authentication, Shopee and Lazada OAuth, store reauthorization, on-demand and scheduled token refresh, store management, cross-store sync, order fulfillment, shipping labels, pick lists, promotions, workspaces, buyer-data purging, and security hardening. All tests use an in-memory SQLite database, are fully deterministic, and require no external network access or real marketplace credentials.
 
 ```bash
 cd backend
@@ -851,18 +848,27 @@ Notable test suites (`backend/tests/Feature/`):
 | `ShopeeTokenRefreshTest.php` | On-demand and scheduled Shopee token refresh |
 | `ShopeeOrderPushTest.php` | Webhook signature verification, order status push, stock push |
 | `ShopeeVacationModeTest.php` | Vacation mode toggle and status |
+| `ShopeeOrderQuantityTest.php` | Order line quantity backfill |
 | `LazadaOrderManagementTest.php` | Lazada order sync, status mapping, pack/ready-to-ship |
 | `LazadaProductUpdateTest.php` | Lazada stock/price updates, mixed-platform bulk updates |
 | `LazadaBulkAwbTest.php` | Bulk AWB assignment |
+| `LazadaSellerNameTest.php` | Lazada seller-name mapping |
 | `PromotionTest.php` | Shopee discounts/vouchers, Lazada vouchers, validation |
+| `OrderListTest.php` / `OrderOrderedAtTest.php` | Order listing, filters, `ordered_at` mapping |
+| `NeedsPushStockTest.php` | `needs_push` flag tracking local vs marketplace stock |
+| `ProductGroupedFilterTest.php` | SKU-grouped product listing and filtering |
 | `ArrangeShipmentTest.php` | Shipping parameters, ship submission, error mapping |
 | `ShippingLabelTest.php` / `BulkShippingLabelTest.php` | Label generation and bulk labels |
+| `DashboardTest.php` | Dashboard stats and pick lists |
 | `PickListCompletionTest.php` | Photo completion, workspace sharing, photo cleanup |
 | `PickListCommentTest.php` | Comments, read tracking, notifications |
 | `WorkspaceAccessTest.php` / `WorkspaceActivityLogTest.php` / `WorkspaceNotificationTest.php` | Workspace isolation, activity logging, notifications |
 | `PurgeBuyerDataTest.php` | 90-day buyer PII retention purge |
-| `Erp*Test.php` | ERP SKU resolution, sync pagination, stock update, sales compare push |
 | `SecurityHardeningTest.php` | Security regression tests (headers, CORS, webhook signatures, isolation) |
+
+Unit suites (`backend/tests/Unit/`): `PickListPhotoCompressorTest.php` and a default `ExampleTest.php`.
+
+> **Note:** the ERP/POS test suites (`Erp*Test.php`) were removed along with the connector. `WorkspaceActivityLogTest.php` still uses `erp.update_stock` as an arbitrary action string for filtering — it is not ERP-dependent.
 
 ### E2E Tests (Playwright)
 
@@ -922,11 +928,14 @@ E2E tests cover the full stock editing flow: login → navigate to stock → edi
 | `LAZADA_SANDBOX` | `false` | Use Lazada sandbox environment |
 | `RECAPTCHA_ENABLED` | `false` | Enable Google reCAPTCHA v2 on login |
 | `RECAPTCHA_SITE_KEY` / `RECAPTCHA_SECRET_KEY` | — | reCAPTCHA v2 keys |
-| `ERP_API_BASE_URL` | `https://pos.melur.com` | Melur POS/ERP API base URL |
-| `ERP_API_CLIENT_ID` / `ERP_API_CLIENT_SECRET` | — | ERP API client credentials |
-| `ERP_API_USERNAME` / `ERP_API_PASSWORD` | — | ERP API user credentials |
-| `ERP_AUTO_SYNC_ENABLED` | `false` | Auto-pull inventory from ERP (push to marketplaces stays manual) |
-| `ERP_LOCATION_ID` | `10` | Business location ID for ERP inventory |
+
+> The former `ERP_*` keys (Melur POS/ERP connector) were removed along with the integration and are no longer read by the app.
+
+### Mobile build flags
+
+| Variable | Purpose |
+|---|---|
+| `PLANTNET_API_KEY` | PlantNet API key for the plant identification screen (`--dart-define=PLANTNET_API_KEY=...`); screen is inert when empty |
 
 ### `config/cors.php`
 

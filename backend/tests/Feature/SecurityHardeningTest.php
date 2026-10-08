@@ -205,7 +205,7 @@ class SecurityHardeningTest extends TestCase
         $response = $this->actingAs($otherUser)->deleteJson("/api/shopee/stores/{$store->id}");
 
         $response->assertStatus(403);
-        $response->assertJson(['message' => 'Forbidden.']);
+        $response->assertJson(['message' => 'Only the workspace owner can unlink stores.']);
         $this->assertDatabaseHas('shopee_stores', ['id' => $store->id]);
     }
 }

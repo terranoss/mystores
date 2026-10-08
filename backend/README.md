@@ -1,59 +1,53 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MyStores — Backend
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 REST API for [MyStores](../README.md), the multi-marketplace (Shopee + Lazada) store manager. Serves the React SPA at the app root and the Flutter mobile app's API at `/api/`.
 
-## About Laravel
+Stack: PHP ^8.2, Laravel Sanctum (API tokens), `ecomphp/shopee-php` SDK, `dompdf` (shipping labels), MySQL (production) / SQLite (local dev), database queue.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Commands
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+touch database/database.sqlite     # local dev
+php artisan migrate
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+php artisan serve                   # API + SPA
+php artisan queue:work --tries=1 --timeout=0
+php artisan schedule:work           # run cron jobs locally
+php artisan test                    # 185 tests
+composer dev                        # serve + queue + Vite together
+```
 
-## Learning Laravel
+## Structure
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```
+app/
+├── Console/Commands/   # Scheduled commands (token refresh, product/order sync, PII purge, photo cleanup)
+├── Exceptions/         # ProductAuthorizationException, StoreNotActiveException
+├── Helpers/            # Shopee response parsing
+├── Http/
+│   ├── Controllers/Api/  # Auth, Dashboard, Products, Orders, Promotions, PickList,
+│   │                     # Shopee/Lazada auth + orders, Webhooks, Workspace, Notifications
+│   ├── Middleware/       # SecurityHeaders
+│   ├── Requests/         # FormRequest validation
+│   └── Resources/
+├── Jobs/               # Queued store/product/order sync and cross-store stock updates
+├── Models/             # Store, Token, OAuthState, Product(+Variant), Order(+Item),
+│                       # InventoryLog, Workspace*, PickList*, Notification, User
+├── Notifications/      # Order new/status/urgent, pick-list comment, team activity, store reauth
+└── Services/           # ShopeeService, LazadaService (+Promotion/Order),
+                        # ProductService, OrderService, LogisticsService,
+                        # PackingListPdfService, PickListPhoto*, Workspace*, Notification*
+routes/                 # api.php (REST), web.php (SPA fallback), console.php (scheduler)
+config/                 # shopee.php, lazada.php, cors.php
+tests/                  # Feature (29 files) + Unit (2 files)
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Notes
 
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+- Registration is disabled — create accounts via `php artisan tinker`.
+- Set `FRONTEND_URL` to the web origin; it drives CORS and OAuth redirects.
+- Full endpoint list: [README API Overview](../README.md#api-overview).
+- The former ERP/POS connector (`pos.melur.com`) was removed; `pos_inventories` is dropped by migration `2026_10_04_000001`.

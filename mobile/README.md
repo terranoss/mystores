@@ -1,17 +1,56 @@
-# shopee_manager
+# MyStores — Mobile App
 
-A new Flutter project.
+Flutter (Android) companion app for the [MyStores](../README.md) multi-marketplace store manager. It talks to the same Laravel REST API as the web frontend — there is no mobile-specific backend.
+
+## Features
+
+| Screen | Route | Notes |
+|---|---|---|
+| Login | `/login` | Sanctum bearer token, stored via `flutter_secure_storage` |
+| Dashboard | `/dashboard` | Stats cards + charts (`fl_chart`), mirrors the web dashboard |
+| Orders | `/orders` | Paginated order list with infinite scroll |
+| Stock | `/stock` | Browse stock per store/platform |
+| Pick list | `/pick-list/today`, `/pick-list/pending` | Today's and pending pick lists |
+| Notifications | `/notifications` | In-app notification feed |
+| Team | `/team` | Workspace members |
+| Plant ID | `/plant-id` | Identify a plant from a photo via the PlantNet API |
+
+Plus an Android home-screen widget showing dashboard stats (`home_widget`).
+
+## Stack
+
+`flutter_riverpod` for state, `dio` for HTTP, `go_router` for navigation, `flutter_secure_storage` for tokens, `image_picker` for photos, `infinite_scroll_pagination` for paginated lists.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+Point the app at your backend in `lib/core/api/api_client.dart` (base URL).
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+### Build flags
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The plant identification screen needs a [PlantNet](https://my.plantnet.org/) API key. Without it the screen is inert:
+
+```bash
+flutter run --dart-define=PLANTNET_API_KEY=your_key
+```
+
+## Layout
+
+```
+lib/
+├── core/
+│   ├── api/           # Dio client, endpoints, error handling, logging
+│   ├── models/        # Store, product, order, dashboard, notification, workspace
+│   ├── providers/     # Riverpod providers
+│   ├── auth/          # Secure token storage
+│   └── widgets/       # Home-screen widget
+├── features/
+│   ├── auth/ dashboard/ stock/ orders/ pick_list/ notifications/ team/
+│   └── plant_id/      # Screen, PlantNet service, result/organ widgets
+├── shared/            # Theme + shared widgets
+└── app.dart / main.dart
+```

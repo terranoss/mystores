@@ -29,6 +29,11 @@ class PurgeBuyerDataTest extends TestCase
         ]);
     }
 
+    private function ageOrder(Order $order, int $days): void
+    {
+        $order->forceFill(['created_at' => Carbon::now()->copy()->subDays($days)])->save();
+    }
+
     public function test_it_can_purge_buyer_data_from_old_orders()
     {
         // Create an order older than 90 days with PII
@@ -57,8 +62,9 @@ class PurgeBuyerDataTest extends TestCase
                 'total_amount' => 100.00,
                 'item_list' => []
             ],
-            'created_at' => Carbon::now()->subDays(100), // Older than 90 days
         ]);
+        // created_at is not mass-assignable, so age the order explicitly
+        $this->ageOrder($oldOrder, 100);
 
         // Create a recent order with PII (should not be purged)
         $recentOrder = Order::create([
@@ -86,33 +92,17 @@ class PurgeBuyerDataTest extends TestCase
                 'total_amount' => 50.00,
                 'item_list' => []
             ],
-            'created_at' => Carbon::now()->subDays(30), // Recent (less than 90 days)
         ]);
-        
-        // Debug: Check that orders were created correctly
+
+        // Sanity check the fixtures before running the purge
         $this->assertNotNull($oldOrder->id);
         $this->assertNotNull($recentOrder->id);
         $this->assertEquals('John Doe', $oldOrder->buyer_username);
         $this->assertEquals('Jane Smith', $recentOrder->buyer_username);
-        
-        // Additional debug: check what Carbon::now()->subDays(100) actually returns
-        $testDate = Carbon::now()->subDays(100);
-        $this->info("DEBUG: Carbon::now()->subDays(100) = {$testDate}");
-        $this->info("DEBUG: Carbon::now() = " . Carbon::now());
-        
-        // Additional debug: check the created_at values
-        $now = Carbon::now();
-        $ninetyDaysAgo = $now->copy()->subDays(90);
-        if (!$oldOrder->created_at->lt($ninetyDaysAgo)) {
-            throw new \Exception("DEBUG: Old order created_at is not less than 90 days ago. Now: {$now}, 90 days ago: {$ninetyDaysAgo}, Old order created_at: {$oldOrder->created_at}");
-        }
-        if ($recentOrder->created_at->lt($ninetyDaysAgo)) {
-            throw new \Exception("DEBUG: Recent order created_at is incorrectly less than 90 days ago. Now: {$now}, 90 days ago: {$ninetyDaysAgo}, Recent order created_at: {$recentOrder->created_at}");
-        }
-        
-        // Let's also test what today minus 90 days should be
-        $expectedNinetyDaysAgo = $now->copy()->subDays(90);
-        $this->info("DEBUG: Expected 90 days ago (using copy): {$expectedNinetyDaysAgo}");
+
+        $ninetyDaysAgo = Carbon::now()->copy()->subDays(90);
+        $this->assertTrue($oldOrder->created_at->lt($ninetyDaysAgo));
+        $this->assertFalse($recentOrder->created_at->lt($ninetyDaysAgo));
 
         // Run the purge command in dry-run mode first
         $this->artisan('orders:purge-buyer-data', ['--dry-run' => true])
