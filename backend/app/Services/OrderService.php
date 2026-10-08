@@ -159,6 +159,11 @@ class OrderService
     {
         $order = $this->getOrder($user, $id);
         $store = $order->store;
+
+        if (($store->platform ?? 'shopee') === 'lazada') {
+            abort(400, 'Lazada orders must be cancelled via the Lazada cancellation endpoint.');
+        }
+
         $store->loadMissing('token');
 
         if (!$store->token || !$store->is_active) {
