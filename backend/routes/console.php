@@ -10,22 +10,22 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Refresh Shopee tokens every 15 minutes (backup to lazy refresh on API calls)
-Schedule::command('shopee:refresh-tokens')->everyFifteenMinutes();
+Schedule::command('shopee:refresh-tokens')->everyFifteenMinutes()->withoutOverlapping();
 
 // Refresh Lazada tokens hourly (access tokens last ~30 days)
-Schedule::command('lazada:refresh-tokens')->hourly();
+Schedule::command('lazada:refresh-tokens')->hourly()->withoutOverlapping();
 
 // Sync Shopee products every 30 minutes
-Schedule::command('shopee:sync-products')->everyThirtyMinutes();
+Schedule::command('shopee:sync-products')->everyThirtyMinutes()->withoutOverlapping();
 
 // Sync Shopee orders every 15 minutes
-Schedule::command('shopee:sync-orders')->everyFifteenMinutes();
+Schedule::command('shopee:sync-orders')->everyFifteenMinutes()->withoutOverlapping();
 
 // Sync Lazada orders every 15 minutes
-Schedule::command('lazada:sync-orders')->everyFifteenMinutes();
+Schedule::command('lazada:sync-orders')->everyFifteenMinutes()->withoutOverlapping();
 
 // Drop pick-list photos once no open orders still need those items
-Schedule::command('picklist:cleanup-photos')->hourly();
+Schedule::command('picklist:cleanup-photos')->hourly()->withoutOverlapping();
 
 // Remove expired API tokens and stale OAuth state records.
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
