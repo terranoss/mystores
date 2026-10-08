@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\ShopeeOAuthState;
+use App\Services\NotificationGeneratorService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -35,4 +36,9 @@ Schedule::call(function () {
 
 // Purge buyer PII from orders older than 90 days (Shopee requirement)
 Schedule::command('orders:purge-buyer-data')->dailyAt('02:00');
+
+// Notify owners about degrading store connections (expiring / failed tokens).
+Schedule::call(function () {
+    app(NotificationGeneratorService::class)->generateStoreHealthNotifications();
+})->name('store-health-notifications')->dailyAt('08:00')->withoutOverlapping();
 

@@ -16,7 +16,7 @@
 |---|---|---|:---:|:---:|:---:|---|
 | **Phase 1** | P0 (Critical) | Core Token Lifecycle & Concurrency Mutex | ~130 | ~240 | **~370 LOC** | `[x] Complete (197/197 passing)` |
 | **Phase 2** | P1 (High) | OAuth Security, Platform Isolation & State Migration | ~220 | ~190 | **~410 LOC** | `[ ] Ready for Execution (Next)` |
-| **Phase 3** | P2 (Medium) | Shared Health Service, Notifications & API Hardening | ~280 | ~140 | **~420 LOC** | `[ ] Queued` |
+| **Phase 3** | P2 (Medium) | Shared Health Service, Notifications & API Hardening | ~280 | ~170 | **~450 LOC** | `[x] Complete (228/228 passing)` |
 | **Phase 4** | P2 (Medium) | Web Dashboard State Consolidation & UI Hardening | ~140 | ~250 | **~390 LOC** | `[ ] Queued` |
 | **Phase 5** | P3 (Low) | Mobile Parity, Action Sheets & Serialization Resiliency | ~230 | ~150 | **~380 LOC** | `[ ] Queued` |
 | **Phase 6** | Quality | End-to-End Regression Suite & Cross-Platform Integrity | ~0 | ~410 | **~410 LOC** | `[ ] Queued` |
@@ -45,13 +45,13 @@ flowchart TD
         T26[Task 2.6: Workspace Cache Key Scoping & Secret Protection]
     end
 
-    subgraph Phase 3: ~420 LOC - P2 Shared Domain Health & API Hardening
-        T11 --> T31[Task 3.1: Extract Unified StoreHealthService]
-        T31 --> T32[Task 3.2: Refactor ShopeeAuthController Health]
-        T31 --> T33[Task 3.3: Wire NotificationGeneratorService & Scheduler]
-        T34[Task 3.4: Harden WorkspaceCredentialController]
-        T35[Task 3.5: Sanitize Vacation Response & Disconnect Cache Reset]
-        T36[Task 3.6: Deduplicate Token Retry Helper across Services]
+    subgraph Phase 3: COMPLETE [x] - P2 Shared Domain Health & API Hardening
+        T11 --> T31[Task 3.1: Extract Unified StoreHealthService [x]]
+        T31 --> T32[Task 3.2: Refactor ShopeeAuthController Health [x]]
+        T31 --> T33[Task 3.3: Wire NotificationGeneratorService & Scheduler [x]]
+        T34[Task 3.4: Harden WorkspaceCredentialController [x]]
+        T35[Task 3.5: Sanitize Vacation Response & Disconnect Cache Reset [x]]
+        T36[Task 3.6: Deduplicate Token Retry Helper across Services [x]]
     end
 
     subgraph Phase 4: ~390 LOC - P2 Web Dashboard UI Hardening
@@ -385,86 +385,120 @@ flowchart TD
 **Estimated Size:** ~420 LOC (Implementation: ~280 LOC, Tests: ~140 LOC)  
 **Objective:** Unify health computation across backend callers, wire dead notification pipelines, and harden credential APIs.
 
-### [ ] Task 3.1: Extract unified `StoreHealthService`
+### [x] Task 3.1: Extract unified `StoreHealthService`
 - **Ref:** Finding #13 (MEDIUM)
-- **Target File:** `backend/app/Services/StoreHealthService.php` (New)
-- **Estimated LOC:** ~85 LOC impl, ~40 LOC test
+- **Target File:** [`backend/app/Services/StoreHealthService.php`](file:///d:/GitHub/mystores/backend/app/Services/StoreHealthService.php) (New)
+- **Status:** Complete — `tests/Feature/StoreHealthServiceTest.php` (11 tests)
 - **Code Changes:**
-  Implement `computeHealth(ShopeeStore $store): array` returning:
-  `['connection_status', 'token_health', 'requires_reauthorization']`.
-  Encapsulates failure thresholds (`refresh_failure_count >= 3`), signed Carbon operand fixes, and 7-day refresh warning windows.
-- **Verification:** Comprehensive unit test testing healthy, expiring, failed, and reauth states.
+  `computeHealth(ShopeeStore $store): array` returns `['connection_status', 'token_health', 'requires_reauthorization']`.
+  Thresholds are exposed as constants (`ACCESS_TOKEN_WARNING_SECONDS`, `REFRESH_TOKEN_WARNING_DAYS`,
+  `REFRESH_FAILURE_THRESHOLD`). Helpers `requiresReauthorization()` and `isOperational()` were added for
+  callers that only need the boolean.
+- **Verification:** `php artisan test --filter=StoreHealthServiceTest` — 11 passing.
 
 ---
 
-### [ ] Task 3.2: Refactor `ShopeeAuthController` to use `StoreHealthService`
+### [x] Task 3.2: Refactor `ShopeeAuthController` to use `StoreHealthService`
 - **Ref:** Finding #13 (MEDIUM)
-- **Target File:** [`backend/app/Http/Controllers/Api/ShopeeAuthController.php:259, 540-578`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/ShopeeAuthController.php#L259)
-- **Estimated LOC:** ~35 LOC impl, ~20 LOC test
+- **Target File:** [`backend/app/Http/Controllers/Api/ShopeeAuthController.php`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/ShopeeAuthController.php)
+- **Status:** Complete
 - **Code Changes:**
-  Inject `StoreHealthService` into `ShopeeAuthController` constructor and delegate `computeStoreHealth()` to the new service.
-- **Verification:** Feature test verifying `GET /api/shopee/stores` returns identical structure with correct status.
+  `StoreHealthService` injected via constructor; the private 65-line `computeStoreHealth()` is deleted and
+  `GET /api/shopee/stores` delegates to `computeHealth()`. The response shape is unchanged.
+- **Verification:** `ShopeeVacationModeTest::test_store_listing_reports_health_from_shared_service`.
 
 ---
 
-### [ ] Task 3.3: Wire `NotificationGeneratorService` & scheduler
+### [x] Task 3.3: Wire `NotificationGeneratorService` & scheduler
 - **Ref:** Finding #13 (MEDIUM)
 - **Target Files:**
-  - [`backend/app/Services/NotificationGeneratorService.php:25, 95-100`](file:///d:/GitHub/mystores/backend/app/Services/NotificationGeneratorService.php#L25)
-  - [`backend/routes/console.php:30-38`](file:///d:/GitHub/mystores/backend/routes/console.php#L30-L38)
-- **Estimated LOC:** ~45 LOC impl, ~35 LOC test
+  - [`backend/app/Services/NotificationGeneratorService.php`](file:///d:/GitHub/mystores/backend/app/Services/NotificationGeneratorService.php)
+  - [`backend/routes/console.php`](file:///d:/GitHub/mystores/backend/routes/console.php)
+- **Status:** Complete — `tests/Feature/StoreHealthNotificationTest.php` (5 tests)
 - **Code Changes:**
-  - Replace stub `getStoreConnectionStatus()` with `StoreHealthService::computeHealth($store)['connection_status']`.
-  - Add scheduled console call in `console.php`:
-    ```php
-    Schedule::call(fn (NotificationGeneratorService $svc) => $svc->generateStoreHealthNotifications())
-        ->dailyAt('08:00')
-        ->withoutOverlapping();
-    ```
-- **Verification:** Unit test asserting `StoreReauthNotification` is dispatched for degrading stores and deduplicated when unread.
+  The stub `getStoreConnectionStatus()` (which hardcoded `'active'` and therefore never fired a notification)
+  is deleted. `NotificationGeneratorService` now injects `StoreHealthService`, eager-loads `token`, and reads
+  `computeHealth($store)['connection_status']`. The pipeline is scheduled:
+  ```php
+  Schedule::call(fn () => app(NotificationGeneratorService::class)->generateStoreHealthNotifications())
+      ->name('store-health-notifications')
+      ->dailyAt('08:00')
+      ->withoutOverlapping();
+  ```
+- **Verification:** Notification dispatched for expiring / failing / token-less stores, deduplicated while unread,
+  silent for healthy stores, and confirmed registered in the scheduler.
 
 ---
 
-### [ ] Task 3.4: Harden `WorkspaceCredentialController`
+### [x] Task 3.4: Harden `WorkspaceCredentialController`
 - **Ref:** Finding #16 (MEDIUM)
 - **Target File:** [`backend/app/Http/Controllers/Api/WorkspaceCredentialController.php`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/WorkspaceCredentialController.php)
-- **Estimated LOC:** ~55 LOC impl, ~45 LOC test
+- **Status:** Complete — `tests/Feature/WorkspaceCredentialTest.php` (8 tests)
 - **Code Changes:**
-  1. Add workspace owner check to `show()` method:
-     ```php
-     if ($this->workspaceAccess->roleInWorkspace($user, $workspace) !== 'owner') {
-         return response()->json(['message' => 'Only workspace owners can view credentials.'], 403);
-     }
-     ```
-  2. Use active workspace context instead of `primaryWorkspace()`.
-  3. Support clearing secret values when explicit empty string or null is submitted.
-- **Verification:** `WorkspaceCredentialTest` asserting non-owner receives 403 and owner can view/clear credentials.
+  1. `show()` now requires `roleInWorkspace(...) === 'owner'` → 403, matching `update()` / `destroy()`.
+  2. Workspace resolution honours an explicit `X-Workspace-Id` header or `workspace_id` input, validated
+     against the caller's memberships (non-member → 404, no cross-tenant leakage); otherwise it falls back to
+     `primaryWorkspace()` / the personal workspace.
+  3. Secrets are clearable: an explicit `""` or `null` now nulls the stored value instead of being ignored.
+     The `[SET]` mask returned by `show()` is treated as "unchanged" so re-submitting the loaded form cannot
+     overwrite a real secret with the placeholder.
+- **Verification:** `WorkspaceCredentialTest` covers 403 for members, masked read, clearing via `""` and `null`,
+  `[SET]` round-trip safety, workspace scoping, and cross-tenant rejection.
 
 ---
 
-### [ ] Task 3.5: Sanitize vacation response & disconnect cache reset
+### [x] Task 3.5: Sanitize vacation response & disconnect cache reset
 - **Ref:** Findings #17 & #18 (MEDIUM)
-- **Target Files:**
-  - [`backend/app/Http/Controllers/Api/ShopeeAuthController.php:354, 503`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/ShopeeAuthController.php#L354)
-  - [`backend/app/Http/Controllers/Api/LazadaAuthController.php:242`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/LazadaAuthController.php#L242)
-- **Estimated LOC:** ~30 LOC impl, ~20 LOC test
+- **Target File:** [`backend/app/Http/Controllers/Api/ShopeeAuthController.php`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/ShopeeAuthController.php)
+- **Status:** Complete
 - **Code Changes:**
-  - Strip `'raw' => $res` from `getVacationMode()` response.
-  - On disconnect: reset `vacation_mode = false`, `vacation_mode_synced_at = null`, and call `$this->shopee->clearStoreCache($store)`.
-- **Verification:** Test verifying response does not leak upstream payload and store disconnect resets vacation state.
+  - `getVacationMode()` no longer returns the raw upstream Shopee payload, which could carry seller metadata
+    outside this endpoint's contract.
+  - `disconnect()` resets `vacation_mode = false`, `vacation_mode_synced_at = null`, and calls
+    `$this->shopee->clearStoreCache($store)` so a reconnect cannot resurrect a stale cached access token.
+- **Verification:** `ShopeeVacationModeTest::test_vacation_mode_response_does_not_leak_raw_upstream_payload`
+  and `..._disconnect_resets_vacation_state_and_clears_cached_token`.
 
 ---
 
-### [ ] Task 3.6: Deduplicate `callWithTokenRetry` helper across services
+### [x] Task 3.6: Deduplicate `callWithTokenRetry` helper across services
 - **Ref:** Findings #19 & #20 (MEDIUM)
 - **Target Files:**
-  - [`backend/app/Services/ProductService.php:1143-1183`](file:///d:/GitHub/mystores/backend/app/Services/ProductService.php#L1143-L1183)
-  - [`backend/app/Services/ShopeePromotionService.php:541`](file:///d:/GitHub/mystores/backend/app/Services/ShopeePromotionService.php#L541)
-  - [`backend/app/Services/ShopeeService.php:374`](file:///d:/GitHub/mystores/backend/app/Services/ShopeeService.php#L374)
-- **Estimated LOC:** ~30 LOC diff (removal/routing), ~20 LOC test
+  - [`backend/app/Services/ProductService.php`](file:///d:/GitHub/mystores/backend/app/Services/ProductService.php)
+  - [`backend/app/Services/ShopeePromotionService.php`](file:///d:/GitHub/mystores/backend/app/Services/ShopeePromotionService.php)
+  - [`backend/app/Services/ShopeeService.php`](file:///d:/GitHub/mystores/backend/app/Services/ShopeeService.php)
+- **Status:** Complete
 - **Code Changes:**
-  Remove duplicate private helpers; route calls through `ShopeeService::callWithTokenRetry($store, $callback)`.
-- **Verification:** `ProductServiceTest` verifying token expiry retry still succeeds on 401.
+  The two duplicated `callWithTokenRetry()` / `isTokenError()` pairs (~70 lines) are deleted.
+  `ShopeeService::callWithTokenRetry()` gained an optional `callable(string): \Throwable $failureFactory`
+  parameter so callers keep throwing their own domain exception (`StoreNotActiveException`) while the
+  refresh-and-retry state machine lives in one place. `ShopeeService::isTokenError()` is now public and is
+  reused by `ProductService`'s pagination error handling.
+- **Verification:** `ShopeeTokenRefreshTest` — delegation is asserted for both services, and the real
+  retry/disconnect behaviour is exercised end-to-end against `ShopeeService`.
+
+### Phase 3 Verification Result (2026-10-08)
+
+| Task | Test Coverage | Result |
+|---|---|:---:|
+| 3.1 | `StoreHealthServiceTest` (11 cases: missing token, active, disconnected, access expiry, null expiry, refresh window, auth expiry, failure count, threshold) | Pass |
+| 3.2 | `ShopeeVacationModeTest::test_store_listing_reports_health_from_shared_service` | Pass |
+| 3.3 | `StoreHealthNotificationTest` (dispatch, dedup while unread, healthy silence, reauth reason, schedule registration) | Pass |
+| 3.4 | `WorkspaceCredentialTest` (8 cases incl. member 403, clearing, `[SET]` round-trip, tenant scoping) | Pass |
+| 3.5 | `ShopeeVacationModeTest::..._does_not_leak_raw_upstream_payload`, `..._resets_vacation_state_and_clears_cached_token` | Pass |
+| 3.6 | `ShopeeTokenRefreshTest::test_promotion_service_delegates_token_retry_to_shopee_service`, `..._product_service_delegates_...`, `..._product_service_wraps_unrecoverable_token_failure_in_domain_exception` | Pass |
+
+**Full backend suite:** `228 passed (915 assertions)` — 198 baseline + 30 new. No regressions.
+
+**Implementation notes / deviations from plan:**
+- The two `call_with_token_retry_*` tests in `ShopeeTokenRefreshTest` were rewritten. They previously mocked
+  `ShopeeService` and asserted the copy-pasted retry loop; they now exercise the single canonical
+  implementation, which is what actually ships.
+- Task 3.4's "active workspace context" is implemented as an opt-in `X-Workspace-Id` header / `workspace_id`
+  input validated against `WorkspaceMember`, since the codebase has no ambient active-workspace concept yet.
+  No frontend change was required: `Settings.tsx` already gates the credential forms behind `isOwner`.
+- Task 3.5 targeted only the Shopee controller. `LazadaAuthController::disconnect()` has no vacation mode and
+  no Shopee token cache, so no equivalent change applies.
 
 ---
 

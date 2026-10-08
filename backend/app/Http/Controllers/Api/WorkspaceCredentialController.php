@@ -11,6 +11,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class WorkspaceCredentialController extends Controller
 {
+    /** Placeholder returned instead of a stored secret value. */
+    public const MASKED_SECRET = '[SET]';
+
     public function __construct(
         private readonly WorkspaceAccess $workspaceAccess,
         private readonly WorkspaceConfig $workspaceConfig
@@ -22,10 +25,15 @@ class WorkspaceCredentialController extends Controller
     public function show(Request $request)
     {
         $user = $request->user();
-        $workspace = $this->getUserWorkspace($user);
+        $workspace = $this->getUserWorkspace($user, $request);
 
         if (!$workspace) {
             return response()->json(['message' => 'Workspace not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Credentials reveal tenant configuration — owner-only, like update()/destroy().
+        if ($this->workspaceAccess->roleInWorkspace($user, $workspace) !== 'owner') {
+            return response()->json(['message' => 'Only the workspace owner can view credentials.'], Response::HTTP_FORBIDDEN);
         }
 
         // Get credentials for both platforms
@@ -44,10 +52,10 @@ class WorkspaceCredentialController extends Controller
         return response()->json([
             'id' => ($shopeeCred ? $shopeeCred->id : ($lazadaCred ? $lazadaCred->id : null)),
             'partner_id' => $shopeeCred?->partner_id ?? '',
-            'partner_key' => $shopeeCred && !empty($shopeeCred->partner_key) ? '[SET]' : '',
-            'push_partner_key' => $shopeeCred && !empty($shopeeCred->push_partner_key) ? '[SET]' : '',
+            'partner_key' => $shopeeCred && !empty($shopeeCred->partner_key) ? self::MASKED_SECRET : '',
+            'push_partner_key' => $shopeeCred && !empty($shopeeCred->push_partner_key) ? self::MASKED_SECRET : '',
             'app_key' => $lazadaCred?->app_key ?? '',
-            'app_secret' => $lazadaCred && !empty($lazadaCred->app_secret) ? '[SET]' : '',
+            'app_secret' => $lazadaCred && !empty($lazadaCred->app_secret) ? self::MASKED_SECRET : '',
         ]);
     }
 
@@ -57,7 +65,7 @@ class WorkspaceCredentialController extends Controller
     public function update(Request $request)
     {
         $user = $request->user();
-        $workspace = $this->getUserWorkspace($user);
+        $workspace = $this->getUserWorkspace($user, $request);
 
         if (!$workspace) {
             return response()->json(['message' => 'Workspace not found'], Response::HTTP_NOT_FOUND);
@@ -87,13 +95,13 @@ class WorkspaceCredentialController extends Controller
                 ]);
 
             if ($request->has('partner_id')) {
-                $shopeeCred->partner_id = $request->partner_id ?: null;
+                $shopeeCred->partner_id = $this->normalizeValue($request->partner_id);
             }
-            if ($request->has('partner_key') && !empty($request->partner_key)) {
-                $shopeeCred->partner_key = $request->partner_key;
+            if ($this->isSecretUpdate($request, 'partner_key')) {
+                $shopeeCred->partner_key = $this->normalizeValue($request->partner_key);
             }
-            if ($request->has('push_partner_key') && !empty($request->push_partner_key)) {
-                $shopeeCred->push_partner_key = $request->push_partner_key;
+            if ($this->isSecretUpdate($request, 'push_partner_key')) {
+                $shopeeCred->push_partner_key = $this->normalizeValue($request->push_partner_key);
             }
 
             $shopeeCred->save();
@@ -109,10 +117,10 @@ class WorkspaceCredentialController extends Controller
                 ]);
 
             if ($request->has('app_key')) {
-                $lazadaCred->app_key = $request->app_key ?: null;
+                $lazadaCred->app_key = $this->normalizeValue($request->app_key);
             }
-            if ($request->has('app_secret') && !empty($request->app_secret)) {
-                $lazadaCred->app_secret = $request->app_secret;
+            if ($this->isSecretUpdate($request, 'app_secret')) {
+                $lazadaCred->app_secret = $this->normalizeValue($request->app_secret);
             }
 
             $lazadaCred->save();
@@ -141,7 +149,7 @@ class WorkspaceCredentialController extends Controller
     public function destroy(Request $request)
     {
         $user = $request->user();
-        $workspace = $this->getUserWorkspace($user);
+        $workspace = $this->getUserWorkspace($user, $request);
 
         if (!$workspace) {
             return response()->json(['message' => 'Workspace not found'], Response::HTTP_NOT_FOUND);
@@ -165,11 +173,57 @@ class WorkspaceCredentialController extends Controller
     }
 
     /**
-     * Get the current user's workspace
+     * Resolve the workspace these credential calls apply to.
+     *
+     * Prefers the explicitly requested workspace (validated for membership) and
+     * otherwise falls back to the caller's primary/personal workspace.
      */
-    private function getUserWorkspace($user)
+    private function getUserWorkspace($user, ?Request $request = null)
     {
+        $requestedId = $request?->header('X-Workspace-Id') ?? $request?->input('workspace_id');
+
+        if ($requestedId !== null && $requestedId !== '') {
+            $workspace = \App\Models\Workspace::find((int) $requestedId);
+
+            if (!$workspace || $this->workspaceAccess->roleInWorkspace($user, $workspace) === null) {
+                return null;
+            }
+
+            return $workspace;
+        }
+
         return $this->workspaceAccess->primaryWorkspace($user)
             ?? $this->workspaceAccess->ensurePersonalWorkspace($user);
+    }
+
+    /**
+     * Whether a secret field was submitted with a real value.
+     *
+     * The masked "[SET]" placeholder returned by show() is ignored so the UI can
+     * round-trip the form without overwriting the stored secret.
+     */
+    private function isSecretUpdate(Request $request, string $field): bool
+    {
+        if (! $request->has($field)) {
+            return false;
+        }
+
+        $value = $request->input($field);
+
+        return ! is_string($value) || $value !== self::MASKED_SECRET;
+    }
+
+    /**
+     * Normalize a submitted credential value. Empty strings clear the value.
+     */
+    private function normalizeValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 }

@@ -385,8 +385,12 @@ class ShopeeService
 
     /**
      * Execute a callback using the authenticated store client, with automatic token refresh retry on token errors.
+     *
+     * @param  callable(string): \Throwable|null  $failureFactory  Builds the exception thrown when the
+     *                                                            token cannot be recovered. Callers that
+     *                                                            need a domain exception supply their own.
      */
-    public function callWithTokenRetry(ShopeeStore $store, callable $callback): mixed
+    public function callWithTokenRetry(ShopeeStore $store, callable $callback, ?callable $failureFactory = null): mixed
     {
         $client = $this->forStore($store);
 
@@ -410,19 +414,22 @@ class ShopeeService
                     throw $retryError;
                 }
                 $this->invalidateStore($store);
-                throw new \RuntimeException(
+                throw ($failureFactory ?? fn (string $m) => new \RuntimeException($m))(
                     "Store #{$store->id} token expired. Please re-link from the Dashboard. ({$retryError->getMessage()})"
                 );
             } catch (\Exception $refreshError) {
                 $this->invalidateStore($store);
-                throw new \RuntimeException(
+                throw ($failureFactory ?? fn (string $m) => new \RuntimeException($m))(
                     "Store #{$store->id} token expired. Please re-link from the Dashboard. ({$refreshError->getMessage()})"
                 );
             }
         }
     }
 
-    private function isTokenError(ShopeeException $e): bool
+    /**
+     * Whether a Shopee exception indicates an invalid/expired access token.
+     */
+    public function isTokenError(ShopeeException $e): bool
     {
         $msg = strtolower($e->getMessage());
 
