@@ -7,6 +7,7 @@ use App\Models\ShopeeOAuthState;
 use App\Models\ShopeeStore;
 use App\Models\ShopeeToken;
 use App\Services\ShopeeService;
+use App\Services\StoreHealthService;
 use App\Services\WorkspaceAccess;
 use App\Services\WorkspaceActivityLogger;
 use App\Services\WorkspaceConfig;
@@ -24,6 +25,7 @@ class ShopeeAuthController extends Controller
         private readonly WorkspaceAccess $workspaceAccess,
         private readonly WorkspaceActivityLogger $activityLogger,
         private readonly WorkspaceConfig $workspaceConfig,
+        private readonly StoreHealthService $storeHealth,
     ) {}
 
     /**
@@ -262,7 +264,7 @@ class ShopeeAuthController extends Controller
 
         return response()->json([
             'stores' => $stores->map(function (ShopeeStore $store) {
-                $health = $this->computeStoreHealth($store);
+                $health = $this->storeHealth->computeHealth($store);
 
                 if (($store->platform ?? 'shopee') === 'shopee' && $store->is_active && $store->token && $health['connection_status'] === 'active') {
                     if ($store->vacation_mode_synced_at === null || $store->vacation_mode_synced_at->diffInHours(now()) >= 6) {
@@ -367,9 +369,17 @@ class ShopeeAuthController extends Controller
         }
 
         DB::transaction(function () use ($store) {
-            $store->update(['is_active' => false]);
+            $store->update([
+                'is_active' => false,
+                // Vacation state belongs to the live connection; a disconnected
+                // store must not keep advertising holiday mode on reconnect.
+                'vacation_mode' => false,
+                'vacation_mode_synced_at' => null,
+            ]);
             $store->token()?->delete();
         });
+
+        $this->shopee->clearStoreCache($store);
 
         $this->activityLogger->log(
             $request->user(),
@@ -516,10 +526,11 @@ class ShopeeAuthController extends Controller
                 'vacation_mode_synced_at' => now(),
             ]);
 
+            // Never echo the raw upstream payload — it can carry seller metadata
+            // beyond what this endpoint is contracted to return.
             return response()->json([
                 'vacation_mode' => $enabled,
                 'vacation_mode_synced_at' => $store->vacation_mode_synced_at,
-                'raw' => $res,
             ]);
         } catch (\Throwable $e) {
             return response()->json([
@@ -530,73 +541,4 @@ class ShopeeAuthController extends Controller
         }
     }
 
-    /**
-     * Compute the operational health status for a store.
-     */
-    private function computeStoreHealth(ShopeeStore $store): array
-    {
-        $token = $store->token;
-
-        if (! $token) {
-            return [
-                'connection_status' => 'missing_token',
-                'token_health' => 'expired',
-                'requires_reauthorization' => false,
-            ];
-        }
-
-        if ($token->auth_expires_at->isPast()) {
-            return [
-                'connection_status' => 'reauthorize_required',
-                'token_health' => 'expired',
-                'requires_reauthorization' => true,
-            ];
-        }
-
-        if (! $store->is_active) {
-            return [
-                'connection_status' => 'disconnected',
-                'token_health' => 'expired',
-                'requires_reauthorization' => false,
-            ];
-        }
-
-        // Refresh is failing repeatedly
-        if ($token->refresh_failure_count > 0 && $token->last_refresh_failed_at) {
-            $reauthorizeRequired = $token->refresh_failure_count >= 3;
-            return [
-                'connection_status' => $reauthorizeRequired ? 'reauthorize_required' : 'refresh_failed',
-                'token_health' => 'expired',
-                'requires_reauthorization' => $reauthorizeRequired,
-            ];
-        }
-
-        // Access token expired or expiring within the next hour.
-        // Carbon 3 returns a signed diff, so the operand order matters:
-        // now()->diffInSeconds($expiresAt) is positive for a future expiry.
-        if (! $token->access_token_expires_at
-            || $token->access_token_expires_at->isPast()
-            || now()->diffInSeconds($token->access_token_expires_at) < 3600) {
-            return [
-                'connection_status' => 'expiring_soon',
-                'token_health' => 'expiring_soon',
-                'requires_reauthorization' => false,
-            ];
-        }
-
-        // Refresh token expiring within 7 days
-        if ($token->refresh_token_expires_at && now()->diffInDays($token->refresh_token_expires_at) < 7) {
-            return [
-                'connection_status' => 'expiring_soon',
-                'token_health' => 'expiring_soon',
-                'requires_reauthorization' => true,
-            ];
-        }
-
-        return [
-            'connection_status' => 'active',
-            'token_health' => 'healthy',
-            'requires_reauthorization' => false,
-        ];
-    }
 }
