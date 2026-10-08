@@ -49,6 +49,7 @@ class LazadaAuthController extends Controller
         $state = Str::random(64);
         ShopeeOAuthState::create([
             'user_id'    => $user->id,
+            'platform'   => 'lazada',
             'state_hash' => hash('sha256', $state),
             'expires_at' => now()->addMinutes(10),
         ]);
@@ -83,6 +84,7 @@ class LazadaAuthController extends Controller
             $oauthState = DB::transaction(function () use ($state) {
                 $record = ShopeeOAuthState::query()
                     ->where('state_hash', hash('sha256', $state))
+                    ->where('platform', 'lazada')
                     ->lockForUpdate()
                     ->first();
 
@@ -130,6 +132,20 @@ class LazadaAuthController extends Controller
 
             // Reauthorization: state carries store_id from handleReauthorize()
             $isReauthorization = !empty($oauthState->store_id);
+
+            // If this is a reauthorization, verify seller_id matches the intended store
+            if ($isReauthorization) {
+                $intendedStore = ShopeeStore::findOrFail($oauthState->store_id);
+                if ((int) $intendedStore->shop_id !== (int) $sellerId) {
+                    Log::warning('Lazada reauthorization seller_id mismatch', [
+                        'intended_shop_id' => $intendedStore->shop_id,
+                        'returned_seller_id' => $sellerId,
+                    ]);
+                    return redirect()->away(
+                        $frontendUrl . '/dashboard?error=reauthorize_shop_mismatch'
+                    );
+                }
+            }
 
             DB::transaction(function () use (
                 $user, $oauthState, $sellerId, $shopName, $country,
@@ -217,6 +233,7 @@ class LazadaAuthController extends Controller
         ShopeeOAuthState::create([
             'user_id'    => $request->user()->id,
             'store_id'   => $store->id,
+            'platform'   => 'lazada',
             'state_hash' => hash('sha256', $state),
             'expires_at' => now()->addMinutes(10),
         ]);

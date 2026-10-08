@@ -4,7 +4,7 @@
 **Scope:** Store linking (Shopee & Lazada), token encryption & lifecycle, health badges, scheduled & on-demand token refresh, reauth/disconnect/unlink, vacation mode, workspace credential isolation  
 **Target Stack:** Laravel 12 / PHP 8.2 (Carbon 3.13) backend, React 19 / TS frontend, Flutter 3 / Dart mobile  
 **Baseline Test Status:** 185 tests passing (41 store-linking tests pass). All 23 defects empirically verified against the active codebase.  
-**Current Test Status:** 197 tests passing (185 baseline + 12 added by Phase 1).  
+**Current Test Status:** 209 tests passing (185 baseline + 12 in Phase 1 + 12 in Phase 2).  
 **Execution Sizing Rule:** Broken into phases targeted at **~400 lines of code per phase** (including implementation and tests) for safe, incremental, and reviewable execution.  
 **Execution Policy:** Human approval required before moving between phases. Run verification test suite after every task.
 
@@ -37,12 +37,13 @@ flowchart TD
         T16["Task 1.6: Scheduler Overlap Guards [x]"]
     end
 
-    subgraph Phase 2: ~410 LOC - P1 OAuth Security & Migration
-        T21[Task 2.1: OAuth State Platform Migration] --> T22[Task 2.2: OAuth State Model & Controller Scoping]
-        T22 --> T23[Task 2.3: Lazada Reauth Mismatch Guard]
-        T22 --> T24[Task 2.4: Cross-Platform Store Route Guards]
-        T25[Task 2.5: Guard Callback Expire_in & Dynamic Refresh Expiry]
-        T26[Task 2.6: Workspace Cache Key Scoping & Secret Protection]
+    subgraph Phase 2: COMPLETE [x] - P1 OAuth Security & Migration
+        T21["Task 2.1: OAuth State Platform Migration [x]"]
+        T22["Task 2.2: OAuth State Model & Controller Scoping [x]"]
+        T23["Task 2.3: Lazada Reauth Mismatch Guard [x]"]
+        T24["Task 2.4: Cross-Platform Store Route Guards [x]"]
+        T25["Task 2.5: Guard Callback Expire_in & Dynamic Refresh Expiry [x]"]
+        T26["Task 2.6: Workspace Cache Key Scoping & Secret Protection [x]"]
     end
 
     subgraph Phase 3: COMPLETE [x] - P2 Shared Domain Health & API Hardening
@@ -269,7 +270,7 @@ flowchart TD
 **Estimated Size:** ~410 LOC (Implementation: ~220 LOC, Tests: ~190 LOC)  
 **Objective:** Enforce cryptographic OAuth state platform scoping, prevent credential spoofing, and isolate tenant secrets.
 
-### [ ] Task 2.1: Database migration: Add `platform` column to `shopee_oauth_states`
+### [x] Task 2.1: Database migration: Add `platform` column to `shopee_oauth_states`
 - **Ref:** Finding #12 (HIGH)
 - **Target File:** `backend/database/migrations/2026_10_08_000001_add_platform_to_shopee_oauth_states_table.php` (New)
 - **Estimated LOC:** ~35 LOC migration, ~15 LOC rollback
@@ -283,7 +284,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 2.2: OAuth state model & controller platform scoping
+### [x] Task 2.2: OAuth state model & controller platform scoping
 - **Ref:** Finding #12 (HIGH)
 - **Target Files:**
   - [`backend/app/Models/ShopeeOAuthState.php`](file:///d:/GitHub/mystores/backend/app/Models/ShopeeOAuthState.php)
@@ -298,7 +299,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 2.3: Seller_id mismatch validation guard in Lazada reauth callback
+### [x] Task 2.3: Seller_id mismatch validation guard in Lazada reauth callback
 - **Ref:** Finding #7 (HIGH)
 - **Target File:** [`backend/app/Http/Controllers/Api/LazadaAuthController.php:131-146`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/LazadaAuthController.php#L131-L146)
 - **Estimated LOC:** ~25 LOC impl, ~45 LOC test
@@ -323,7 +324,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 2.4: Cross-platform store route guards
+### [x] Task 2.4: Cross-platform store route guards
 - **Ref:** Finding #8 (HIGH)
 - **Target Files:**
   - [`backend/app/Http/Controllers/Api/ShopeeAuthController.php:306, 348, 376`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/ShopeeAuthController.php#L306)
@@ -345,7 +346,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 2.5: Guard callback expire_in & retain Shopee refresh expiry
+### [x] Task 2.5: Guard callback expire_in & retain Shopee refresh expiry
 - **Ref:** Findings #9 & #11 (HIGH)
 - **Target Files:**
   - [`backend/app/Http/Controllers/Api/ShopeeAuthController.php:148`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/ShopeeAuthController.php#L148)
@@ -368,7 +369,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 2.6: Workspace cache key scoping & tenant secret protection
+### [x] Task 2.6: Workspace cache key scoping & tenant secret protection
 - **Ref:** Finding #10 (HIGH)
 - **Target Files:**
   - [`backend/app/Services/ShopeeService.php:420-435`](file:///d:/GitHub/mystores/backend/app/Services/ShopeeService.php#L420-L435)
@@ -376,8 +377,29 @@ flowchart TD
 - **Estimated LOC:** ~45 LOC impl, ~45 LOC test
 - **Code Changes:**
   - Change cache key to `"shopee:token:ws_{$store->workspace_id}:shop_{$store->shop_id}"`.
-  - In `WorkspaceConfig`: avoid caching raw decrypted plaintext secrets in global cache or encrypt cached payloads.
+  - In `WorkspaceConfig`: avoid caching raw decrypted plaintext secrets in global cache or encrypt cached payloads (`encrypt(serialize($result))`).
 - **Verification:** Unit test verifying cache key format and checking cache payload structure.
+
+### Phase 2 Verification Result (2026-10-08)
+
+| Task | Test Coverage | Result |
+|---|---|:---:|
+| 2.1 | Migration `2026_10_08_000001_add_platform_to_shopee_oauth_states_table` tested in SQLite test runs & artisan migrate | Pass |
+| 2.2 | `ShopeeOAuthTest::test_shopee_callback_rejects_lazada_oauth_state`, `LazadaAuthControllerTest::test_callback_rejects_shopee_oauth_state` | Pass |
+| 2.3 | `LazadaAuthControllerTest::test_reauthorization_callback_aborts_on_seller_id_mismatch` | Pass |
+| 2.4 | `ShopeeOAuthTest::test_shopee_endpoints_reject_lazada_store`, `LazadaAuthControllerTest::test_lazada_endpoints_reject_shopee_store` | Pass |
+| 2.5 | `ShopeeOAuthTest::test_shopee_callback_guards_expire_in_with_fallback`, `ShopeeTokenRefreshTest::test_refresh_store_token_uses_store_workspace_credentials` | Pass |
+| 2.6 | `ShopeeTokenRefreshTest::test_token_cache_scoped_by_workspace`, `ShopeeTokenRefreshTest::test_workspace_config_cache_is_encrypted_at_rest` | Pass |
+
+**Full backend suite:** `209 passed (866 assertions)` — 197 prior + 12 new tests in `LazadaAuthControllerTest` and `ShopeeOAuthTest`. No regressions.
+**Frontend build:** `npm run build` succeeds cleanly with 0 TypeScript/Vite errors.
+**Mobile analyze:** `flutter analyze` passes cleanly with `No issues found!`.
+
+**Implementation notes / deviations from plan:**
+- Task 2.6: In `ShopeeService::clearStoreCache()`, cleared both the workspace-scoped key (`shopee:token:ws_{id}:shop_{id}`) and the legacy key (`shopee:token:shop_{id}`) to prevent stale cache entries during migration.
+- Task 2.6: In `WorkspaceConfig::getCredential()`, cached configs are encrypted via Laravel's `encrypt(serialize(...))` and decrypted on cache hit so tenant API keys and app secrets are never stored plaintext in cache backends (Redis/file).
+- Task 2.4: `ShopeeAuthController` endpoints for `reauthorize`, `disconnect`, and `unlink` now return `400 Bad Request` with an explanatory error message when invoked on a store whose platform is not `'shopee'`.
+- Task 2.3: `LazadaAuthController::callback()` now redirects to `/dashboard?error=reauthorize_shop_mismatch` if the returned `seller_id` doesn't match the existing store's `shop_id`.
 
 ---
 
