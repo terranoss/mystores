@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+
+tone_instructions: "Be direct, concise, and explain the 'why' behind any issue. Do not nitpick formatting or minor style preferences."
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+
+  # Ignore vendor dependencies, build outputs, and auto-generated files across Laravel, Flutter, and Vite
+  path_filters:
+    - "!**/*.lock"
+    - "!**/node_modules/**"
+    - "!**/vendor/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/.dart_tool/**"
+    - "!**/storage/**"
+    - "!**/public/build/**"
+    - "!**/.phpunit.result.cache"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.svg"
+
+  # Core Repository Review Guidelines
+  instructions: |
+    - Plot holes (Business Logic): Verify whether the code fulfills the business flow end-to-end or omits essential steps. Pay close attention to multi-channel inventory syncing, order status transitions (Shopee/Lazada), picklist statuses, and multi-tenant workspace scoping.
+    - Leaving the front door open (Security & Injection): Flag any potential SQL injections, especially raw queries, unescaped bindings in DB queries, or mass-assignment vulnerabilities. Verify authentication (Sanctum) and ensure strict workspace/tenant authorization checks so users cannot access data belonging to another store or workspace.
+    - Hidden slowdowns (N+1 queries): Flag any potential N+1 database queries in loops; verify eager loading (`with(...)`) in Eloquent. Flag synchronous external marketplace API calls (Shopee/Lazada) placed directly inside request lifecycles that should be dispatched to background queued jobs.
+    - Weird scenarios (Edge cases & Concurrency): Check for double-click / rapid button taps without debouncing, mutation throttling, or idempotency checks. Verify numeric boundaries: reject negative numbers, zero where invalid, or overflow values for stock quantities and pricing. Ensure graceful error boundaries, null safety, and proper exception handling.
+    - The dangerous stuff (CRITICAL ALERTS): Alert immediately if code touches anything related to taking payments, financial transactions, deleting user data, removing workspace members, or disconnecting/unlinking stores. Require explicit confirmation safeguards and verify that destructive actions are restricted to workspace owners.
+
+  path_instructions:
+    - path: "backend/**"
+      instructions: |
+        - Ensure all Eloquent queries enforce tenant scoping (`workspace_id`).
+        - Ensure database mutations affecting stock counts and order fulfillments use database transactions (`DB::transaction`).
+        - Validate form requests and ensure rate-limiting middleware (`throttle:mutation`, `throttle:sync`) is applied where appropriate.
+    - path: "frontend/**"
+      instructions: |
+        - Ensure buttons performing stock updates, syncs, or deletions are debounced or disabled while submitting to prevent double-click race conditions.
+        - Validate user inputs for stock quantities and prices against negative values or invalid formats.
+        - Ensure React error boundaries and API error fallbacks are present.
+    - path: "mobile/**"
+      instructions: |
+        - Ensure buttons triggering API calls prevent rapid repeated taps.
+        - Handle network drops, timeouts, and unexpected null responses gracefully.
