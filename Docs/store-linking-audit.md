@@ -4,7 +4,7 @@
 **Scope:** Store linking (Shopee & Lazada), token encryption & lifecycle, health badges, scheduled & on-demand token refresh, reauth/disconnect/unlink, vacation mode, workspace credential isolation  
 **Target Stack:** Laravel 12 / PHP 8.2 (Carbon 3.13) backend, React 19 / TS frontend, Flutter 3 / Dart mobile  
 **Baseline Test Status:** 185 tests passing (41 store-linking tests pass). All 23 defects empirically verified against the active codebase.  
-**Current Test Status:** 209 tests passing (185 baseline + 12 in Phase 1 + 12 in Phase 2).  
+**Current Test Status:** 239 tests passing (185 baseline + 12 in Phase 1 + 12 in Phase 2 + 30 in Phase 3).  
 **Execution Sizing Rule:** Broken into phases targeted at **~400 lines of code per phase** (including implementation and tests) for safe, incremental, and reviewable execution.  
 **Execution Policy:** Human approval required before moving between phases. Run verification test suite after every task.
 
@@ -14,13 +14,13 @@
 
 | Phase | Priority | Target Scope | Est. Impl. LOC | Est. Test LOC | Total Est. LOC | Status |
 |---|---|---|:---:|:---:|:---:|---|
-| **Phase 1** | P0 (Critical) | Core Token Lifecycle & Concurrency Mutex | ~130 | ~240 | **~370 LOC** | `[x] Complete (197/197 passing)` |
-| **Phase 2** | P1 (High) | OAuth Security, Platform Isolation & State Migration | ~220 | ~190 | **~410 LOC** | `[ ] Ready for Execution (Next)` |
-| **Phase 3** | P2 (Medium) | Shared Health Service, Notifications & API Hardening | ~280 | ~170 | **~450 LOC** | `[x] Complete (228/228 passing)` |
-| **Phase 4** | P2 (Medium) | Web Dashboard State Consolidation & UI Hardening | ~140 | ~250 | **~390 LOC** | `[ ] Queued` |
+| **Phase 1** | P0 (Critical) | Core Token Lifecycle & Concurrency Mutex | ~130 | ~240 | **~370 LOC** | `[x] Complete (merged via PR #1)` |
+| **Phase 2** | P1 (High) | OAuth Security, Platform Isolation & State Migration | ~220 | ~190 | **~410 LOC** | `[x] Complete (merged via PR #2)` |
+| **Phase 3** | P2 (Medium) | Shared Health Service, Notifications & API Hardening | ~280 | ~170 | **~450 LOC** | `[x] Complete (merged via PR #3)` |
+| **Phase 4** | P2 (Medium) | Web Dashboard State Consolidation & UI Hardening | ~140 | ~250 | **~390 LOC** | `[ ] Ready for Execution (Next)` |
 | **Phase 5** | P3 (Low) | Mobile Parity, Action Sheets & Serialization Resiliency | ~230 | ~150 | **~380 LOC** | `[ ] Queued` |
 | **Phase 6** | Quality | End-to-End Regression Suite & Cross-Platform Integrity | ~0 | ~410 | **~410 LOC** | `[ ] Queued` |
-| **Total** | | **Comprehensive Store Linking Remediation** | **~1,000** | **~1,380** | **~2,380 LOC** | |
+| **Total** | | **Comprehensive Store Linking Remediation** | **~1,000** | **~1,580** | **~2,580 LOC** | **3 of 6 phases complete** |
 
 ---
 
@@ -55,11 +55,11 @@ flowchart TD
         T36[Task 3.6: Deduplicate Token Retry Helper across Services [x]]
     end
 
-    subgraph Phase 4: ~390 LOC - P2 Web Dashboard UI Hardening
+    subgraph Phase 4: ~390 LOC - P2 Web Dashboard UI Hardening - NEXT
         T31 --> T41[Task 4.1: Web Dashboard isOwner Fail-Safe]
-        T42[Task 4.2: Consolidate Dashboard Stores with StoreContext]
-        T43[Task 4.3: HealthBadge Unhide & Fallback Styles]
-        T44[Task 4.4: Synchronize Disconnect/Unlink/Vacation State]
+        T41 --> T42[Task 4.2: Consolidate Dashboard Stores with StoreContext]
+        T42 --> T43[Task 4.3: HealthBadge Unhide & Fallback Styles]
+        T43 --> T44[Task 4.4: Synchronize Disconnect/Unlink/Vacation State]
     end
 
     subgraph Phase 5: ~380 LOC - P3 Mobile Parity & Resiliency
@@ -510,7 +510,8 @@ flowchart TD
 | 3.5 | `ShopeeVacationModeTest::..._does_not_leak_raw_upstream_payload`, `..._resets_vacation_state_and_clears_cached_token` | Pass |
 | 3.6 | `ShopeeTokenRefreshTest::test_promotion_service_delegates_token_retry_to_shopee_service`, `..._product_service_delegates_...`, `..._product_service_wraps_unrecoverable_token_failure_in_domain_exception` | Pass |
 
-**Full backend suite:** `228 passed (915 assertions)` — 198 baseline + 30 new. No regressions.
+**Full backend suite:** `228 passed (915 assertions)` at time of Phase 3 execution — 198 baseline + 30 new. No regressions.
+After the Phase 2 ↔ Phase 3 branches were merged, the suite stands at `239 passed (952 assertions)`.
 
 **Implementation notes / deviations from plan:**
 - The two `call_with_token_retry_*` tests in `ShopeeTokenRefreshTest` were rewritten. They previously mocked
@@ -526,7 +527,12 @@ flowchart TD
 
 ## Phase 4: Web Dashboard State Consolidation & UI Hardening (P2)
 **Estimated Size:** ~390 LOC (Frontend Impl: ~140 LOC, Tests: ~250 LOC)  
+**Status:** `[ ] Ready for Execution (Next)` — requires human approval per the execution policy.  
 **Objective:** Eliminate fail-open UI states, unify store state management with `StoreContext`, and show proper health badges.
+
+> **Confirmed still outstanding:** `Dashboard.tsx:732` still initialises `isOwner` to `true` (fail-open), and
+> `HealthBadge` suppression on line ~1214 is unchanged. Phase 3's backend work does not close these — they are
+> the next blockers on the critical path to Phase 6.
 
 ### [ ] Task 4.1: Web Dashboard `isOwner` fail-safe
 - **Ref:** Finding #14 (MEDIUM)
