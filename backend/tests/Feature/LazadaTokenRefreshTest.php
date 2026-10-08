@@ -194,6 +194,69 @@ class LazadaTokenRefreshTest extends TestCase
         $this->assertGreaterThan($options['connect_timeout'] + $options['timeout'], $lockTtl);
     }
 
+    public function test_scheduled_lazada_refresh_skips_valid_tokens(): void
+    {
+        // 1. Healthy Lazada store (expires in 10 days, > 24 hours)
+        $validStore = $this->makeStore([
+            'access_token_expires_at' => now()->addDays(10),
+            'refresh_token_expires_at' => now()->addDays(100),
+        ]);
+
+        // 2. Shopee store that is expiring (must be ignored by lazada:refresh-tokens)
+        $user = User::factory()->create();
+        $shopeeStore = ShopeeStore::create([
+            'user_id' => $user->id,
+            'platform' => 'shopee',
+            'shop_id' => 99999,
+            'shop_name' => 'Shopee Store',
+            'region' => 'MY',
+            'is_active' => true,
+        ]);
+        ShopeeToken::create([
+            'store_id' => $shopeeStore->id,
+            'access_token' => encrypt('shopee-access'),
+            'refresh_token' => encrypt('shopee-refresh'),
+            'access_token_expires_at' => now()->addHour(),
+            'refresh_token_expires_at' => now()->addDays(30),
+            'auth_expires_at' => now()->addDays(30),
+        ]);
+
+        $orderService = Mockery::mock(LazadaOrderService::class);
+        $orderService->shouldNotReceive('ensureFreshToken');
+        $this->app->instance(LazadaOrderService::class, $orderService);
+
+        $this->artisan('lazada:refresh-tokens')
+            ->expectsOutput('No Lazada tokens need refreshing.')
+            ->assertExitCode(0);
+    }
+
+    public function test_scheduled_lazada_refresh_processes_expiring_tokens(): void
+    {
+        // Expiring Lazada store (access token expiring within 24h window)
+        $expiringStore = $this->makeStore([
+            'access_token_expires_at' => now()->addHours(6),
+            'refresh_token_expires_at' => now()->addDays(50),
+        ]);
+
+        // Valid Lazada store (should not be touched)
+        $freshStore = $this->makeStore([
+            'access_token_expires_at' => now()->addDays(5),
+            'refresh_token_expires_at' => now()->addDays(50),
+        ]);
+
+        $orderService = Mockery::mock(LazadaOrderService::class);
+        $orderService->shouldReceive('ensureFreshToken')
+            ->once()
+            ->with(Mockery::on(fn ($s) => $s->id === $expiringStore->id));
+        $this->app->instance(LazadaOrderService::class, $orderService);
+
+        $this->artisan('lazada:refresh-tokens')
+            ->expectsOutput('Refreshing 1 Lazada token(s)...')
+            ->expectsOutput("  ✓ Store #{$expiringStore->id} refreshed")
+            ->expectsOutput('Done: 1 refreshed, 0 failed.')
+            ->assertExitCode(0);
+    }
+
     private function privateConstant(string $class, string $name): int
     {
         return (int) (new \ReflectionClass($class))->getConstant($name);

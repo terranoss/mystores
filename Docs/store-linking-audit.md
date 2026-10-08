@@ -19,8 +19,8 @@
 | **Phase 3** | P2 (Medium) | Shared Health Service, Notifications & API Hardening | ~280 | ~170 | **~450 LOC** | `[x] Complete (merged via PR #3)` |
 | **Phase 4** | P2 (Medium) | Web Dashboard State Consolidation & UI Hardening | ~60 | ~0 | **~60 LOC** | `[x] Complete` |
 | **Phase 5** | P3 (Low) | Mobile Parity, Action Sheet & Serialization Resiliency | ~80 | ~40 | **~120 LOC** | `[x] Complete` |
-| **Phase 6** | Quality | End-to-End Regression Gate & Remaining Token Tests | ~0 | ~80 | **~80 LOC** | `[ ] Queued` |
-| **Total** | | **Comprehensive Store Linking Remediation** | **~770** | **~720** | **~1,490 LOC** | **5 of 6 phases complete** |
+| **Phase 6** | Quality | End-to-End Regression Gate & Remaining Token Tests | ~0 | ~80 | **~80 LOC** | `[x] Complete` |
+| **Total** | | **Comprehensive Store Linking Remediation** | **~770** | **~720** | **~1,490 LOC** | **6 of 6 phases complete (100%)** |
 
 ---
 
@@ -669,7 +669,7 @@ After the Phase 2 ↔ Phase 3 branches were merged, the suite stands at `239 pas
 
 ## Phase 6: End-to-End Regression Gate & Remaining Token Tests (Quality)
 **Estimated Size:** ~80 LOC (Automated Tests & Quality Gate)  
-**Status:** `[ ] Queued`  
+**Status:** `[x] Complete`  
 **Objective:** Complete final scheduler refresh tests and execute full 3-stack regression gate.
 
 > **Note on test deduplication:**  
@@ -677,32 +677,34 @@ After the Phase 2 ↔ Phase 3 branches were merged, the suite stands at `239 pas
 > - Former Task 6.3 (`WorkspaceCredentialTest` & `StoreHealthNotificationTest`) was **already implemented in Phase 3** (13 tests, 328 LOC).  
 > These are marked resolved without duplicating work.
 
-### [ ] Task 6.1: Scheduled token refresh command filter tests
+### [x] Task 6.1: Scheduled token refresh command filter tests
 - **Ref:** Test Gap 3
 - **Target File:** [`backend/tests/Feature/LazadaTokenRefreshTest.php`](file:///d:/GitHub/mystores/backend/tests/Feature/LazadaTokenRefreshTest.php)
 - **Estimated LOC:** ~50 LOC test
 - **Test Cases:**
   - `test_scheduled_lazada_refresh_skips_valid_tokens`
   - `test_scheduled_lazada_refresh_processes_expiring_tokens`
-- **Verification:** `php artisan test --filter=LazadaTokenRefreshTest` passing all tests.
+- **Verification:** `php artisan test --filter=LazadaTokenRefreshTest` passing all 9 tests.
 
 ---
 
-### [ ] Task 6.2: Cross-platform full regression gate
+### [x] Task 6.2: Cross-platform full regression gate
 - **Estimated LOC:** ~30 LOC doc / script
-- **Execution Recipe:**
-  ```bash
-  # 1. Backend test suite
-  cd backend && php artisan test
-  # 2. Web frontend build & lint
-  cd ../frontend && npm run build && npm run lint
-  # 3. Mobile static analysis & tests
-  cd ../mobile && flutter analyze && flutter test
-  ```
-- **Acceptance Criteria:** 
-  - Total passing backend tests >=241 (up from baseline 185).
-  - Frontend TypeScript compile clean (0 errors).
-  - Flutter analysis clean (0 issues) and all unit/widget tests passing.
+- **Execution Recipe & Results:**
+  1. **Backend test suite:** `cd backend && php artisan test`  
+     → `241 passed (954 assertions)` in 16.25s (up from baseline 185 tests, zero regressions).
+  2. **Web frontend build & lint:** `cd ../frontend && npm run build && npm run lint`  
+     → `npm run build` (`tsc -b && vite build`) built cleanly with 0 TypeScript errors (286 modules). Lint remains identical to baseline.
+  3. **Mobile static analysis & tests:** `cd ../mobile && flutter analyze && flutter test`  
+     → `flutter analyze` reports `No issues found!`.  
+     → `flutter test` reports `All tests passed! (20 passed)`.
+
+### Phase 6 Verification Result (2026-10-08)
+
+| Task | Test Coverage | Result |
+|---|---|:---:|
+| 6.1 | `LazadaTokenRefreshTest::test_scheduled_lazada_refresh_skips_valid_tokens`, `..._processes_expiring_tokens` | Pass |
+| 6.2 | Full 3-Stack Regression Gate: Backend (241 passed), Frontend (build clean), Mobile (analyze & 20 tests pass) | Pass |
 
 ---
 
