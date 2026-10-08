@@ -610,15 +610,11 @@ class ProductService
      */
     public function syncLinkedStores(User $user, string $sku, int $newStock, int $originProductId): void
     {
-        $originProduct = Product::with('store')->find($originProductId);
-        $originPlatform = $originProduct?->store?->platform ?? 'shopee';
-
         // 1. Find matching variants in other products (excluding origin product)
         $matchingVariants = ProductVariant::where('model_sku', $sku)
             ->where('product_id', '!=', $originProductId)
-            ->whereHas('product.store', function ($q) use ($user, $originPlatform) {
+            ->whereHas('product.store', function ($q) use ($user) {
                 $this->applyWorkspaceStoreScope($q, $user, true);
-                $q->where('platform', $originPlatform);
             })
             ->with('product.store')
             ->get();
@@ -643,9 +639,8 @@ class ProductService
         $matchingProducts = Product::where('item_sku', $sku)
             ->where('has_variants', false)
             ->where('id', '!=', $originProductId)
-            ->whereHas('store', function ($q) use ($user, $originPlatform) {
+            ->whereHas('store', function ($q) use ($user) {
                 $this->applyWorkspaceStoreScope($q, $user, true);
-                $q->where('platform', $originPlatform);
             })
             ->with('store')
             ->get();

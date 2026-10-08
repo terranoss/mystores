@@ -176,6 +176,74 @@ class NeedsPushStockTest extends TestCase
         $this->assertSame(0, (int) $b->fresh()->stock);
     }
 
+    public function test_sync_linked_stores_cross_platform_dispatches_to_both_shopee_and_lazada(): void
+    {
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $storeShopee1 = $this->makeStore($user, 'shopee', 8901, 'Shopee Origin');
+        $storeShopee2 = $this->makeStore($user, 'shopee', 8902, 'Shopee Linked');
+        $storeLazada = $this->makeStore($user, 'lazada', 8903, 'Lazada Linked');
+
+        $origin = Product::create([
+            'store_id' => $storeShopee1->id,
+            'item_id' => 77001,
+            'item_name' => 'Origin Product',
+            'item_sku' => 'CROSS-SKU',
+            'price' => 15,
+            'stock' => 20,
+            'has_variants' => false,
+            'needs_push' => false,
+        ]);
+
+        $linkedShopee = Product::create([
+            'store_id' => $storeShopee2->id,
+            'item_id' => 77002,
+            'item_name' => 'Linked Shopee Product',
+            'item_sku' => 'CROSS-SKU',
+            'price' => 15,
+            'stock' => 10,
+            'has_variants' => false,
+            'needs_push' => false,
+        ]);
+
+        $linkedLazada = Product::create([
+            'store_id' => $storeLazada->id,
+            'item_id' => 77003,
+            'item_name' => 'Linked Lazada Product',
+            'item_sku' => 'CROSS-SKU',
+            'price' => 15,
+            'stock' => 10,
+            'has_variants' => false,
+            'needs_push' => false,
+        ]);
+
+        $lazadaService = \Mockery::mock(\App\Services\LazadaService::class);
+        $lazadaService->shouldReceive('buildPriceQuantitySkuUpdates')->once()->andReturn([
+            ['ItemId' => 77003, 'SellerSku' => 'CROSS-SKU', 'Quantity' => 50]
+        ]);
+        $lazadaService->shouldReceive('buildPriceQuantityPayload')->once()->andReturn('<xml/>');
+        $lazadaService->shouldReceive('updatePriceQuantity')->once()->andReturn(['code' => '0']);
+
+        $productService = new \App\Services\ProductService(
+            app(\App\Services\ShopeeService::class),
+            $lazadaService
+        );
+
+        $productService->syncLinkedStores($user, 'CROSS-SKU', 50, $origin->id);
+
+        // Verify Shopee was queued
+        Queue::assertPushed(UpdateShopeeStockJob::class, function ($job) use ($linkedShopee) {
+            $ref = new \ReflectionClass($job);
+            $prop = $ref->getProperty('productId');
+            $prop->setAccessible(true);
+            return $prop->getValue($job) === $linkedShopee->id;
+        });
+
+        // Verify Lazada store was updated synchronously
+        $this->assertSame(50, (int) $linkedLazada->fresh()->stock);
+    }
+
     private function makeStore(
         User $user,
         string $platform = 'shopee',

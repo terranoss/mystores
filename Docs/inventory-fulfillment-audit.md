@@ -14,10 +14,10 @@
 
 | Phase | Priority | Target Scope | Est. Impl. LOC | Est. Test LOC | Total Est. LOC | Status |
 |---|---|---|:---:|:---:|:---:|---|
-| **Phase 1** | P0 (Critical) | Cross-Platform Stock Sync & Packing Slip Real SKU Display | ~35 | ~120 | **~155 LOC** | `[ ] Pending Approval` |
-| **Phase 2** | P1 (High) | Platform-Aware Order Cancellation Guard & Error Handling | ~25 | ~90 | **~115 LOC** | `[ ] Pending` |
+| **Phase 1** | P0 (Critical) | Cross-Platform Stock Sync & Packing Slip Real SKU Display | ~35 | ~120 | **~155 LOC** | `[x] Complete` |
+| **Phase 2** | P1 (High) | Platform-Aware Order Cancellation Guard & Error Handling | ~25 | ~90 | **~115 LOC** | `[ ] Pending Approval` |
 | **Phase 3** | P1 (High) | Inventory Audit Trail for Direct & Local Staged Operations | ~70 | ~140 | **~210 LOC** | `[ ] Pending` |
-| **Total** | | **Critical Inventory & Fulfillment Remediation** | **~130** | **~350** | **~480 LOC** | **0 of 3 phases complete (0%)** |
+| **Total** | | **Critical Inventory & Fulfillment Remediation** | **~130** | **~350** | **~480 LOC** | **1 of 3 phases complete (33%)** |
 
 ---
 
