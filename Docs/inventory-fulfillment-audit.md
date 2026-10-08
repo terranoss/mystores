@@ -130,9 +130,9 @@ flowchart TD
 
 ---
 
-## Phase 3: Complete Inventory Audit Trail (P1)
+## Phase 3: Complete Inventory Audit Trail (P1) [COMPLETED]
 
-**Estimated Size:** ~210 LOC (Implementation: ~70 LOC, Tests: ~140 LOC)  
+**Status:** Completed  
 **Objective:** Ensure all stock and price changes (local staged edits, direct synchronous updates, and Lazada marketplace updates) are recorded in `inventory_logs`.
 
 ### Task 3.1: Record Audit Entries in `applyLocalStockAndPrice` and `updateLazadaProduct`
@@ -140,16 +140,16 @@ flowchart TD
 - **Problem Statement:**  
   Currently only `UpdateShopeeStockJob` and `UpdateShopeePriceJob` insert into `inventory_logs`. Local staged stock/price changes (via "Save local" / `mode=local`) and Lazada updates leave no trace in `inventory_logs`.
 - **Code Changes:**
-  - Create a private helper `recordInventoryLog($product, $variantId, $sku, $oldStock, $newStock, $oldPrice, $newPrice, $source, $status, $error = null)`.
+  - Added private helper `recordInventoryLog($product, $variantId, $sku, $oldStock, $newStock, $oldPrice, $newPrice, $source, $status, $errorMessage = null)`.
   - In `applyLocalStockAndPrice`: write `InventoryLog` records with `source = 'local_staged'` and `status = 'success'`.
   - In `updateLazadaProduct`: write `InventoryLog` records with `source = 'user'` and `status = 'success'`.
 
 ### Task 3.2: Verification Tests
-- **Target File:** `backend/tests/Feature/InventoryAuditLogTest.php`
+- **Target File:** [`backend/tests/Feature/InventoryAuditLogTest.php`](file:///d:/GitHub/mystores/backend/tests/Feature/InventoryAuditLogTest.php)
 - **Test Coverage:**
-  1. Test that calling `updateStockAndPrice` with `mode=local` creates an `InventoryLog` with `source='local_staged'`.
-  2. Test that updating a Lazada product creates an `InventoryLog` with `status='success'`.
-- **Command:** `php artisan test --filter=InventoryAuditLogTest`
+  1. Test that calling `updateStockAndPrice` with `mode=local` creates an `InventoryLog` with `source='local_staged'` for both simple products and variant products.
+  2. Test that updating a Lazada product creates an `InventoryLog` with `source='user'` and `status='success'`.
+- **Command:** `php artisan test --filter=InventoryAuditLogTest` (3 tests passed)
 
 ---
 
