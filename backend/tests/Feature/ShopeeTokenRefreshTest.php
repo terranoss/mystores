@@ -226,6 +226,75 @@ class ShopeeTokenRefreshTest extends TestCase
         });
     }
 
+    public function test_refresh_store_token_uses_store_workspace_credentials(): void
+    {
+        $store = $this->makeStoreWithToken([
+            'access_token_expires_at' => now()->subMinute(),
+        ]);
+
+        // A refresh triggered from CLI has no authenticated user, so the service
+        // must fall back to the store's own workspace when building the client.
+        $auth = Mockery::mock();
+        $auth->shouldReceive('refreshNewToken')
+            ->once()
+            ->andReturn([
+                'access_token' => 'ws-access',
+                'refresh_token' => 'ws-refresh',
+                'expire_in' => 14400,
+            ]);
+
+        $service = $this->workspaceRecordingShopeeService($auth);
+
+        $service->refreshStoreToken($store);
+
+        $this->assertSame([$store->workspace_id], $service->observedWorkspaceIds);
+        $this->assertSame('ws-access', decrypt($store->fresh()->token->access_token));
+    }
+
+    public function test_refresh_command_ignores_lazada_stores(): void
+    {
+        $user = User::factory()->create();
+        $lazadaStore = ShopeeStore::create([
+            'user_id' => $user->id,
+            'platform' => 'lazada',
+            'shop_id' => 45555,
+            'shop_name' => 'Lazada Store',
+            'region' => 'MY',
+            'is_active' => false,
+        ]);
+        ShopeeToken::create([
+            'store_id' => $lazadaStore->id,
+            'access_token' => encrypt('lazada-access'),
+            'refresh_token' => encrypt('lazada-refresh'),
+            'access_token_expires_at' => now()->subDay(),
+            'refresh_token_expires_at' => now()->addDays(10),
+            'auth_expires_at' => now()->addDays(30),
+        ]);
+
+        $shopee = Mockery::mock(ShopeeService::class);
+        $shopee->shouldNotReceive('refreshStoreToken');
+        $this->app->instance(ShopeeService::class, $shopee);
+
+        $this->artisan('shopee:refresh-tokens')
+            ->expectsOutput('No tokens need refreshing.')
+            ->assertExitCode(0);
+    }
+
+    public function test_refresh_command_refreshes_expiring_shopee_store(): void
+    {
+        $store = $this->makeStoreWithToken([
+            'access_token_expires_at' => now()->addMinutes(20),
+        ]);
+
+        $shopee = Mockery::mock(ShopeeService::class);
+        $shopee->shouldReceive('refreshStoreToken')
+            ->once()
+            ->with(Mockery::on(fn ($s) => $s->id === $store->id));
+        $this->app->instance(ShopeeService::class, $shopee);
+
+        $this->artisan('shopee:refresh-tokens')->assertSuccessful();
+    }
+
     public function test_refresh_tokens_command_schedule_is_every_fifteen_minutes(): void
     {
         $schedule = app(Schedule::class);
@@ -240,6 +309,34 @@ class ShopeeTokenRefreshTest extends TestCase
         }
 
         $this->assertTrue($scheduled, 'shopee:refresh-tokens should be scheduled every 15 minutes');
+    }
+
+    public function test_scheduled_sync_commands_use_overlap_mutex(): void
+    {
+        $expected = [
+            'shopee:refresh-tokens',
+            'lazada:refresh-tokens',
+            'shopee:sync-products',
+            'shopee:sync-orders',
+            'lazada:sync-orders',
+            'picklist:cleanup-photos',
+        ];
+
+        $schedule = app(Schedule::class);
+        $found = [];
+
+        foreach ($schedule->events() as $event) {
+            foreach ($expected as $command) {
+                if (str_contains((string) ($event->command ?? ''), $command)) {
+                    $found[$command] = $event->withoutOverlapping;
+                }
+            }
+        }
+
+        foreach ($expected as $command) {
+            $this->assertArrayHasKey($command, $found, "{$command} should be scheduled");
+            $this->assertTrue($found[$command], "{$command} should run without overlapping");
+        }
     }
 
     /**
@@ -293,6 +390,32 @@ class ShopeeTokenRefreshTest extends TestCase
 
             public function auth()
             {
+                return $this->authMock;
+            }
+        };
+    }
+
+    /**
+     * Service that records the workspace active at the moment the SDK client is
+     * requested, so tests can assert which tenant credentials were used.
+     */
+    private function workspaceRecordingShopeeService(object $auth): ShopeeService
+    {
+        return new class($auth) extends ShopeeService {
+            /** @var list<int|null> */
+            public array $observedWorkspaceIds = [];
+
+            public function __construct(private object $authMock)
+            {
+                parent::__construct();
+            }
+
+            public function auth()
+            {
+                $property = new \ReflectionProperty(ShopeeService::class, 'activeWorkspaceId');
+                $property->setAccessible(true);
+                $this->observedWorkspaceIds[] = $property->getValue($this);
+
                 return $this->authMock;
             }
         };

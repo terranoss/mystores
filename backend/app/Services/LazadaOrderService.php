@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\ShopeeStore;
+use App\Models\ShopeeToken;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -553,34 +555,93 @@ class LazadaOrderService
         return $order;
     }
 
+    /**
+     * Ensure the store's Lazada access token is fresh, refreshing it when needed.
+     *
+     * Lazada rotates the refresh token on every use and invalidates the previous
+     * one immediately, so the refresh is guarded by a per-store mutex: parallel
+     * callers wait for the lock and then re-read the token row instead of burning
+     * a second single-use refresh token.
+     *
+     * @throws \RuntimeException When the refresh token is expired, another refresh
+     *                           is in progress, or the upstream refresh failed
+     *                           (failure metadata is recorded on the token row).
+     */
     public function ensureFreshToken(ShopeeStore $store): void
     {
         $store->loadMissing('token');
-        $token = $store->token;
-        if (!$token) {
+        if (!$store->token || $this->tokenIsFresh($store->token)) {
             return;
-        }
-        if ($token->access_token_expires_at && $token->access_token_expires_at->gt(now()->addMinutes(30))) {
-            return;
-        }
-        if ($token->refresh_token_expires_at && $token->refresh_token_expires_at->isPast()) {
-            throw new \RuntimeException("Store #{$store->id} Lazada refresh token expired. Please reconnect.");
         }
 
-        $refreshToken = decrypt($token->refresh_token);
-        $data = $this->runWithWorkspace($store->workspace_id, fn () => $this->lazada->refreshToken($refreshToken));
-        $token->update([
-            'access_token' => encrypt($data['access_token']),
-            'refresh_token' => encrypt($data['refresh_token'] ?? $refreshToken),
-            'access_token_expires_at' => now()->addSeconds((int) ($data['expires_in'] ?? 2592000)),
-            'last_refreshed_at' => now(),
-            'last_refresh_attempt_at' => now(),
-            'last_refresh_failed_at' => null,
-            'last_refresh_error' => null,
-            'refresh_failure_count' => 0,
-        ]);
-        $store->unsetRelation('token');
-        $store->load('token');
+        $lock = Cache::lock("lazada:token-refresh:store_{$store->id}", 30);
+
+        try {
+            $lock->block(15, function () use ($store) {
+                // Another request may have refreshed while we waited for the lock.
+                $store->unsetRelation('token');
+                $store->load('token');
+                $token = $store->token;
+
+                if (!$token || $this->tokenIsFresh($token)) {
+                    return;
+                }
+
+                if ($token->refresh_token_expires_at && $token->refresh_token_expires_at->isPast()) {
+                    throw new \RuntimeException("Store #{$store->id} Lazada refresh token expired. Please reconnect.");
+                }
+
+                $token->update(['last_refresh_attempt_at' => now()]);
+
+                $refreshToken = decrypt($token->refresh_token);
+
+                try {
+                    $data = $this->runWithWorkspace($store->workspace_id, fn () => $this->lazada->refreshToken($refreshToken));
+                } catch (\Throwable $e) {
+                    $token->forceFill([
+                        'last_refresh_failed_at' => now(),
+                        'last_refresh_error' => mb_substr($e->getMessage(), 0, 255),
+                    ]);
+                    $token->refresh_failure_count = ((int) $token->refresh_failure_count) + 1;
+                    $token->save();
+
+                    throw $e;
+                }
+
+                $refreshExpiresIn = (int) ($data['refresh_expires_in'] ?? $data['refresh_token_expires_in'] ?? 15552000);
+
+                $token->update([
+                    'access_token' => encrypt($data['access_token']),
+                    'refresh_token' => encrypt($data['refresh_token'] ?? $refreshToken),
+                    'access_token_expires_at' => now()->addSeconds((int) ($data['expires_in'] ?? 2592000)),
+                    'refresh_token_expires_at' => now()->addSeconds($refreshExpiresIn),
+                    'auth_expires_at' => now()->addSeconds($refreshExpiresIn),
+                    'last_refreshed_at' => now(),
+                    'last_refresh_attempt_at' => now(),
+                    'last_refresh_failed_at' => null,
+                    'last_refresh_error' => null,
+                    'refresh_failure_count' => 0,
+                ]);
+
+                $store->unsetRelation('token');
+                $store->load('token');
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            throw new \RuntimeException(
+                "Store #{$store->id} Lazada token refresh is already in progress. Please retry.",
+                0,
+                $e
+            );
+        }
+    }
+
+    /**
+     * Lazada access tokens stay valid for ~30 days; treat 30 minutes as the buffer.
+     */
+    private function tokenIsFresh(ShopeeToken $token): bool
+    {
+        return $token->access_token_expires_at !== null
+            && $token->access_token_expires_at->gt(now()->addMinutes(30));
     }
 
     private function refreshShopName(ShopeeStore $store, array $creds): void
