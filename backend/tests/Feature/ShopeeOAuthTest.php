@@ -374,6 +374,62 @@ class ShopeeOAuthTest extends TestCase
         $this->assertSame(2, $storeData['products_count']);
     }
 
+    public function test_store_listing_reports_active_for_healthy_token(): void
+    {
+        $user = User::factory()->create();
+        $store = ShopeeStore::create([
+            'user_id' => $user->id,
+            'shop_id' => 30010,
+            'shop_name' => 'Healthy Store',
+            'region' => 'MY',
+            'is_active' => true,
+        ]);
+        ShopeeToken::create([
+            'store_id' => $store->id,
+            'access_token' => encrypt('access-token'),
+            'refresh_token' => encrypt('refresh-token'),
+            'access_token_expires_at' => now()->addDays(30),
+            'refresh_token_expires_at' => now()->addDays(60),
+            'auth_expires_at' => now()->addYear(),
+            'last_refreshed_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user)->getJson('/api/shopee/stores');
+
+        $response->assertStatus(200);
+        $storeData = $response->json('stores.0');
+        $this->assertSame('active', $storeData['connection_status']);
+        $this->assertSame('healthy', $storeData['token_health']);
+        $this->assertFalse($storeData['requires_reauthorization']);
+    }
+
+    public function test_store_listing_reports_expiring_soon_for_token_inside_hour(): void
+    {
+        $user = User::factory()->create();
+        $store = ShopeeStore::create([
+            'user_id' => $user->id,
+            'shop_id' => 30011,
+            'shop_name' => 'Expiring Store',
+            'region' => 'MY',
+            'is_active' => true,
+        ]);
+        ShopeeToken::create([
+            'store_id' => $store->id,
+            'access_token' => encrypt('access-token'),
+            'refresh_token' => encrypt('refresh-token'),
+            'access_token_expires_at' => now()->addMinutes(30),
+            'refresh_token_expires_at' => now()->addDays(60),
+            'auth_expires_at' => now()->addYear(),
+            'last_refreshed_at' => now(),
+        ]);
+
+        $storeData = $this->actingAs($user)->getJson('/api/shopee/stores')->json('stores.0');
+
+        $this->assertSame('expiring_soon', $storeData['connection_status']);
+        $this->assertSame('expiring_soon', $storeData['token_health']);
+        $this->assertFalse($storeData['requires_reauthorization']);
+    }
+
     public function test_disconnect_keeps_store_products_orders_and_logs(): void
     {
         $user = User::factory()->create();

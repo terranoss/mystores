@@ -4,6 +4,7 @@
 **Scope:** Store linking (Shopee & Lazada), token encryption & lifecycle, health badges, scheduled & on-demand token refresh, reauth/disconnect/unlink, vacation mode, workspace credential isolation  
 **Target Stack:** Laravel 12 / PHP 8.2 (Carbon 3.13) backend, React 19 / TS frontend, Flutter 3 / Dart mobile  
 **Baseline Test Status:** 185 tests passing (41 store-linking tests pass). All 23 defects empirically verified against the active codebase.  
+**Current Test Status:** 197 tests passing (185 baseline + 12 added by Phase 1).  
 **Execution Sizing Rule:** Broken into phases targeted at **~400 lines of code per phase** (including implementation and tests) for safe, incremental, and reviewable execution.  
 **Execution Policy:** Human approval required before moving between phases. Run verification test suite after every task.
 
@@ -13,8 +14,8 @@
 
 | Phase | Priority | Target Scope | Est. Impl. LOC | Est. Test LOC | Total Est. LOC | Status |
 |---|---|---|:---:|:---:|:---:|---|
-| **Phase 1** | P0 (Critical) | Core Token Lifecycle & Concurrency Mutex | ~130 | ~240 | **~370 LOC** | `[ ] Ready for Review` |
-| **Phase 2** | P1 (High) | OAuth Security, Platform Isolation & State Migration | ~220 | ~190 | **~410 LOC** | `[ ] Queued` |
+| **Phase 1** | P0 (Critical) | Core Token Lifecycle & Concurrency Mutex | ~130 | ~240 | **~370 LOC** | `[x] Complete (197/197 passing)` |
+| **Phase 2** | P1 (High) | OAuth Security, Platform Isolation & State Migration | ~220 | ~190 | **~410 LOC** | `[ ] Ready for Execution (Next)` |
 | **Phase 3** | P2 (Medium) | Shared Health Service, Notifications & API Hardening | ~280 | ~140 | **~420 LOC** | `[ ] Queued` |
 | **Phase 4** | P2 (Medium) | Web Dashboard State Consolidation & UI Hardening | ~140 | ~250 | **~390 LOC** | `[ ] Queued` |
 | **Phase 5** | P3 (Low) | Mobile Parity, Action Sheets & Serialization Resiliency | ~230 | ~150 | **~380 LOC** | `[ ] Queued` |
@@ -27,13 +28,13 @@
 
 ```mermaid
 flowchart TD
-    subgraph Phase 1: ~370 LOC - P0 Core Token Lifecycle & Concurrency
-        T11[Task 1.1: Carbon Operand Sign Fix]
-        T12[Task 1.2: Shopee Workspace Scoping]
-        T13[Task 1.3: Lazada Concurrency Lock]
-        T14[Task 1.4: Lazada Refresh Error Tracking]
-        T15[Task 1.5: Refresh Command Platform Filter]
-        T16[Task 1.6: Scheduler Overlap Guards]
+    subgraph Phase 1: COMPLETE [x] - P0 Core Token Lifecycle & Concurrency
+        T11["Task 1.1: Carbon Operand Sign Fix [x]"]
+        T12["Task 1.2: Shopee Workspace Scoping [x]"]
+        T13["Task 1.3: Lazada Concurrency Lock [x]"]
+        T14["Task 1.4: Lazada Refresh Error Tracking [x]"]
+        T15["Task 1.5: Refresh Command Platform Filter [x]"]
+        T16["Task 1.6: Scheduler Overlap Guards [x]"]
     end
 
     subgraph Phase 2: ~410 LOC - P1 OAuth Security & Migration
@@ -89,7 +90,7 @@ flowchart TD
 **Estimated Size:** ~370 LOC (Implementation: ~130 LOC, Tests: ~240 LOC)  
 **Objective:** Eliminate token classification failure, single-use refresh race conditions, and cross-platform token pollution.
 
-### [ ] Task 1.1: Fix Carbon operand sign for store health badge
+### [x] Task 1.1: Fix Carbon operand sign for store health badge
 - **Ref:** Finding #1 (CRITICAL)
 - **Target File:** [`backend/app/Http/Controllers/Api/ShopeeAuthController.php:556`](file:///d:/GitHub/mystores/backend/app/Http/Controllers/Api/ShopeeAuthController.php#L556)
 - **Estimated LOC:** ~15 LOC impl, ~35 LOC test
@@ -111,7 +112,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 1.2: Scope Shopee token refresh to store workspace
+### [x] Task 1.2: Scope Shopee token refresh to store workspace
 - **Ref:** Finding #2 (CRITICAL)
 - **Target File:** [`backend/app/Services/ShopeeService.php:240-246`](file:///d:/GitHub/mystores/backend/app/Services/ShopeeService.php#L240-L246)
 - **Estimated LOC:** ~15 LOC impl, ~45 LOC test
@@ -132,7 +133,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 1.3: Concurrency lock for Lazada single-use token refresh
+### [x] Task 1.3: Concurrency lock for Lazada single-use token refresh
 - **Ref:** Finding #3 (CRITICAL)
 - **Target File:** [`backend/app/Services/LazadaOrderService.php:556-584`](file:///d:/GitHub/mystores/backend/app/Services/LazadaOrderService.php#L556-L584)
 - **Estimated LOC:** ~30 LOC impl, ~60 LOC test
@@ -166,7 +167,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 1.4: Track Lazada refresh failures and extend refresh token expiry
+### [x] Task 1.4: Track Lazada refresh failures and extend refresh token expiry
 - **Ref:** Finding #4 (CRITICAL)
 - **Target File:** [`backend/app/Services/LazadaOrderService.php:571-584`](file:///d:/GitHub/mystores/backend/app/Services/LazadaOrderService.php#L571-L584)
 - **Estimated LOC:** ~40 LOC impl, ~50 LOC test
@@ -203,7 +204,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 1.5: Add platform filter to `shopee:refresh-tokens`
+### [x] Task 1.5: Add platform filter to `shopee:refresh-tokens`
 - **Ref:** Finding #5 (CRITICAL)
 - **Target File:** [`backend/app/Console/Commands/RefreshShopeeTokens.php:16-25`](file:///d:/GitHub/mystores/backend/app/Console/Commands/RefreshShopeeTokens.php#L16-L25)
 - **Estimated LOC:** ~15 LOC impl, ~40 LOC test
@@ -226,7 +227,7 @@ flowchart TD
 
 ---
 
-### [ ] Task 1.6: Prevent scheduler overlaps in background jobs
+### [x] Task 1.6: Prevent scheduler overlaps in background jobs
 - **Ref:** Finding #6 (CRITICAL)
 - **Target File:** [`backend/routes/console.php:12-26`](file:///d:/GitHub/mystores/backend/routes/console.php#L12-L26)
 - **Estimated LOC:** ~15 LOC impl, ~10 LOC test
@@ -241,6 +242,25 @@ flowchart TD
   Schedule::command('lazada:sync-orders')->everyFifteenMinutes()->withoutOverlapping();
   ```
 - **Verification:** Verify `php artisan schedule:list` registers mutex lock parameters.
+
+### Phase 1 Verification Result (2026-10-08)
+
+| Task | Test Coverage | Result |
+|---|---|:---:|
+| 1.1 | `ShopeeOAuthTest::test_store_listing_reports_active_for_healthy_token`, `..._reports_expiring_soon_for_token_inside_hour` | Pass |
+| 1.2 | `ShopeeTokenRefreshTest::test_refresh_store_token_uses_store_workspace_credentials` | Pass |
+| 1.3 | `LazadaTokenRefreshTest::test_second_concurrent_refresh_does_not_burn_the_rotated_token`, `..._reloads_token_relation_after_refresh` | Pass |
+| 1.4 | `LazadaTokenRefreshTest::test_ensure_fresh_token_extends_refresh_and_auth_expiry`, `..._records_failure_count_on_api_error`, `..._rejects_expired_refresh_token` | Pass |
+| 1.5 | `ShopeeTokenRefreshTest::test_refresh_command_ignores_lazada_stores`, `..._refreshes_expiring_shopee_store` | Pass |
+| 1.6 | `ShopeeTokenRefreshTest::test_scheduled_sync_commands_use_overlap_mutex` | Pass |
+
+**Full backend suite:** `197 passed (825 assertions)` — 185 baseline + 12 new. No regressions.
+
+**Implementation notes / deviations from plan:**
+- Task 1.1 also guards a null `access_token_expires_at` to avoid a fatal on malformed token rows.
+- Task 1.2 wraps the SDK call in a new private `ShopeeService::refreshViaApi()` helper that falls back to the ambient workspace when `$store->workspace_id` is null.
+- Task 1.4 accepts both `refresh_expires_in` and `refresh_token_expires_in` from the upstream payload, defaulting to 180 days (15,552,000s).
+- Task 1.6 additionally guards `picklist:cleanup-photos`, which shares the same hourly overlapping-run risk.
 
 ---
 
@@ -579,31 +599,28 @@ flowchart TD
 
 ---
 
-### [ ] Task 6.2: Lazada Token Refresh & Concurrency Suite
+### [ ] Task 6.2: Lazada Token Refresh & Concurrency Suite (Expansion)
 - **Ref:** Test Gaps 3 & 4
-- **Target File:** `backend/tests/Feature/LazadaTokenRefreshTest.php` (New)
-- **Estimated LOC:** ~130 LOC test
-- **Test Cases:**
-  - `test_ensure_fresh_token_acquires_atomic_lock`
-  - `test_ensure_fresh_token_extends_refresh_token_expires_at`
-  - `test_ensure_fresh_token_records_failure_count_on_api_error`
+- **Target File:** `backend/tests/Feature/LazadaTokenRefreshTest.php`
+- **Phase 1 Progress:** Seeded with 4 passing tests (mutex concurrency lock, expiry extension, failure counter, expired refresh token rejection).
+- **Remaining Scope (~50 LOC):**
   - `test_scheduled_lazada_refresh_skips_valid_tokens`
+  - `test_scheduled_lazada_refresh_processes_expiring_tokens`
 
 ---
 
-### [ ] Task 6.3: Multi-tenant credential isolation & scheduler tests
-- **Ref:** Test Gaps 5, 6, 7, 8, 9, 10
+### [ ] Task 6.3: Multi-tenant credential isolation & notification tests
+- **Ref:** Test Gaps 5, 8, 9, 10
 - **Target Files:**
-  - `backend/tests/Feature/ShopeeTokenRefreshTest.php`
-  - `backend/tests/Feature/WorkspaceCredentialTest.php`
-  - `backend/tests/Feature/StoreHealthNotificationTest.php`
-- **Estimated LOC:** ~130 LOC test
-- **Test Cases:**
-  - `test_shopee_refresh_command_ignores_lazada_stores`
-  - `test_refresh_uses_workspace_custom_credentials`
+  - `backend/tests/Feature/WorkspaceCredentialTest.php` (New)
+  - `backend/tests/Feature/StoreHealthNotificationTest.php` (New)
+  - `backend/tests/Feature/ShopeeVacationModeTest.php`
+- **Phase 1 Progress:** Platform filter (`test_refresh_command_ignores_lazada_stores`), workspace scoping (`test_refresh_store_token_uses_store_workspace_credentials`), and scheduler overlap mutex tests were completed.
+- **Remaining Scope (~100 LOC):**
   - `test_non_owner_forbidden_from_viewing_credentials`
   - `test_owner_can_clear_credentials`
   - `test_store_health_notification_dispatches_when_expiring`
+  - `test_lazy_vacation_sync_on_active_healthy_store`
 
 ---
 

@@ -552,8 +552,12 @@ class ShopeeAuthController extends Controller
             ];
         }
 
-        // Access token expired or expiring within the next hour
-        if ($token->access_token_expires_at->isPast() || $token->access_token_expires_at->diffInSeconds(now()) < 3600) {
+        // Access token expired or expiring within the next hour.
+        // Carbon 3 returns a signed diff, so the operand order matters:
+        // now()->diffInSeconds($expiresAt) is positive for a future expiry.
+        if (! $token->access_token_expires_at
+            || $token->access_token_expires_at->isPast()
+            || now()->diffInSeconds($token->access_token_expires_at) < 3600) {
             return [
                 'connection_status' => 'expiring_soon',
                 'token_health' => 'expiring_soon',

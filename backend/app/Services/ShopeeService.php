@@ -239,10 +239,7 @@ class ShopeeService
 
                 try {
                     $refreshToken = decrypt($token->refresh_token);
-                    $newTokens = $this->auth()->refreshNewToken(
-                        $refreshToken,
-                        $store->shop_id
-                    );
+                    $newTokens = $this->refreshViaApi($store, $refreshToken);
 
                     $token->update([
                         'access_token' => encrypt($newTokens['access_token']),
@@ -279,6 +276,24 @@ class ShopeeService
                 $e
             );
         }
+    }
+
+    /**
+     * Exchange a refresh token against the store's own workspace credentials.
+     *
+     * Refresh runs from CLI/cron (no authenticated user) and from other tenants'
+     * requests, so the client must be configured for `$store->workspace_id`
+     * instead of whatever workspace happens to be active.
+     *
+     * @return array<string, mixed>
+     */
+    private function refreshViaApi(ShopeeStore $store, string $refreshToken): array
+    {
+        $callback = fn () => $this->auth()->refreshNewToken($refreshToken, $store->shop_id);
+
+        return $store->workspace_id
+            ? $this->withWorkspace($store->workspace_id, $callback)
+            : $callback();
     }
 
     /**
