@@ -12,6 +12,7 @@ class ShopeeOAuthState extends Model
     protected $fillable = [
         'user_id',
         'store_id',
+        'platform',
         'state_hash',
         'expires_at',
         'consumed_at',
