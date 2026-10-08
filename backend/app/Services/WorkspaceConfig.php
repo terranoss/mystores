@@ -33,7 +33,11 @@ class WorkspaceConfig
         $cached = Cache::get($cacheKey);
         
         if ($cached !== null) {
-            return $cached;
+            try {
+                return unserialize(decrypt($cached));
+            } catch (\Throwable) {
+                Cache::forget($cacheKey);
+            }
         }
 
         // Get from database
@@ -63,8 +67,8 @@ class WorkspaceConfig
             default => [],
         };
 
-        // Cache for 1 hour
-        Cache::put($cacheKey, $result, 3600);
+        // Cache encrypted for 1 hour
+        Cache::put($cacheKey, encrypt(serialize($result)), 3600);
 
         return $result;
     }
