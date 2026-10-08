@@ -11,18 +11,22 @@ use Carbon\Carbon;
 
 class NotificationGeneratorService
 {
+    public function __construct(
+        private readonly StoreHealthService $storeHealth,
+    ) {}
+
     /**
      * Check store health and generate token/reauth notifications without duplicates.
      */
     public function generateStoreHealthNotifications(): void
     {
-        $stores = ShopeeStore::with('user')->get();
+        $stores = ShopeeStore::with(['user', 'token'])->get();
 
         foreach ($stores as $store) {
             $user = $store->user;
             if (!$user) continue;
 
-            $status = $this->getStoreConnectionStatus($store);
+            $status = $this->storeHealth->computeHealth($store)['connection_status'];
             if (!in_array($status, ['expiring_soon', 'refresh_failed', 'reauthorize_required', 'missing_token'])) {
                 continue;
             }
@@ -90,12 +94,5 @@ class NotificationGeneratorService
                 ));
             }
         }
-    }
-
-    private function getStoreConnectionStatus(ShopeeStore $store): string
-    {
-        // Re-use logic for store health
-        if (!$store->is_active) return 'disconnected';
-        return 'active'; // Default
     }
 }
