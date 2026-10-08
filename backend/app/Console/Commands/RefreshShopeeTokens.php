@@ -14,14 +14,18 @@ class RefreshShopeeTokens extends Command
     public function handle(ShopeeService $shopee): int
     {
         $expiringTokens = ShopeeToken::with('store')
+            // Lazada tokens live in the same table and must never hit the Shopee SDK.
+            ->whereHas('store', fn ($q) => $q->where('platform', 'shopee'))
             ->where(function ($q) {
-                // Tokens expiring within the next hour (covers 30-min lazy buffer + cron drift)
-                $q->where('access_token_expires_at', '<=', now()->addHour())
-                    ->where('auth_expires_at', '>', now());
-            })->orWhere(function ($q) {
-                // Tokens on stores deactivated by auth error handling (try to revive them)
-                $q->whereHas('store', fn ($sq) => $sq->where('is_active', false))
-                    ->where('auth_expires_at', '>', now());
+                $q->where(function ($sub) {
+                    // Tokens expiring within the next hour (covers 30-min lazy buffer + cron drift)
+                    $sub->where('access_token_expires_at', '<=', now()->addHour())
+                        ->where('auth_expires_at', '>', now());
+                })->orWhere(function ($sub) {
+                    // Tokens on stores deactivated by auth error handling (try to revive them)
+                    $sub->whereHas('store', fn ($sq) => $sq->where('is_active', false))
+                        ->where('auth_expires_at', '>', now());
+                });
             })->get();
 
         if ($expiringTokens->isEmpty()) {

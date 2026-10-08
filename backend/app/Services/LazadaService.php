@@ -11,6 +11,12 @@ use App\Services\WorkspaceConfig;
 
 class LazadaService
 {
+    /** Maximum seconds to establish the connection to Lazada's auth endpoint. */
+    private const AUTH_CONNECT_TIMEOUT_SECONDS = 10;
+
+    /** Maximum seconds for a full token request (connect + transfer). */
+    private const AUTH_REQUEST_TIMEOUT_SECONDS = 30;
+
     /** @var array<string, string> */
     private array $regionalBaseUrls = [
         'sg' => 'https://api.lazada.sg/rest',
@@ -229,6 +235,10 @@ class LazadaService
      * Refresh an existing access token.
      * Endpoint: POST https://auth.lazada.com/rest/auth/token/refresh
      *
+     * Lazada rotates the refresh token on every call, so timeouts are pinned
+     * explicitly (rather than inherited from framework defaults) to keep the
+     * worst-case round trip bounded and predictable.
+     *
      * @throws \RuntimeException
      */
     public function refreshToken(string $refreshToken): array
@@ -243,7 +253,10 @@ class LazadaService
         ];
         $params['sign'] = $this->generateSignature($apiPath, $params);
 
-        $response = Http::asForm()->post('https://auth.lazada.com/rest' . $apiPath, $params);
+        $response = Http::asForm()
+            ->connectTimeout(self::AUTH_CONNECT_TIMEOUT_SECONDS)
+            ->timeout(self::AUTH_REQUEST_TIMEOUT_SECONDS)
+            ->post('https://auth.lazada.com/rest' . $apiPath, $params);
 
         if (!$response->successful()) {
             throw new \RuntimeException('Lazada token refresh HTTP error ' . $response->status());
