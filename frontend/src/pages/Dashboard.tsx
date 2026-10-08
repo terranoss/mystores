@@ -207,10 +207,13 @@ function HealthBadge({ status }: { status: ShopeeStore['connection_status'] }) {
     disconnected: 'bg-gray-400',
     missing_token: 'bg-red-500',
   };
+  const style = styles[status] || 'bg-gray-50 text-gray-600 border-gray-200';
+  const label = labels[status] || status || 'Unknown';
+  const dot = dotStyles[status] || 'bg-gray-400';
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${styles[status]}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[status]}`} />
-      {labels[status]}
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${style}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+      {label}
     </span>
   );
 }
@@ -726,10 +729,10 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { selectedStoreId, selectedMarketplace } = useStore();
+  const { selectedStoreId, selectedMarketplace, refetchStores } = useStore();
   const [stores, setStores] = useState<ShopeeStore[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isOwner, setIsOwner] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
@@ -756,8 +759,7 @@ export default function Dashboard() {
       setStores(storesData);
       setIsOwner(
         statsData.workspace?.role === 'owner' ||
-          user?.is_workspace_owner === true ||
-          statsData.workspace?.role == null
+          user?.is_workspace_owner === true
       );
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to load dashboard data.');
@@ -827,6 +829,7 @@ export default function Dashboard() {
     if (!confirm(`Disconnect "${store.shop_name || 'Shop #' + store.shop_id}"?\n\nSyncing will stop, but products, orders, and history will be kept. You can reconnect later.`)) return;
     try {
       await disconnectStore(store.id, store.platform);
+      refetchStores();
       fetchData();
     } catch {
       showToast('Failed to disconnect store.', 'error');
@@ -845,6 +848,7 @@ export default function Dashboard() {
     try {
       await unlinkStore(store.id, store.platform);
       showToast('Store unlinked permanently.', 'success');
+      refetchStores();
       fetchData();
     } catch {
       showToast('Failed to unlink store.', 'error');
@@ -868,6 +872,7 @@ export default function Dashboard() {
     try {
       const res = await setStoreVacationMode(store.id, nextState);
       showToast(res.message || `Vacation mode ${nextState ? 'enabled' : 'disabled'}.`, 'success');
+      refetchStores();
       setStores((prev) =>
         prev.map((s) =>
           s.id === store.id
@@ -1211,9 +1216,7 @@ export default function Dashboard() {
                       accessExpiresAt={store.access_token_expires_at}
                       refreshExpiresAt={store.refresh_token_expires_at}
                     />
-                    {store.connection_status !== 'expiring_soon' && (
-                      <HealthBadge status={store.connection_status} />
-                    )}
+                    <HealthBadge status={store.connection_status} />
                     <VacationModeToggle
                       store={store}
                       isOwner={isOwner}
