@@ -244,8 +244,10 @@ class ShopeeService
                     $token->update([
                         'access_token' => encrypt($newTokens['access_token']),
                         'refresh_token' => encrypt($newTokens['refresh_token']),
-                        'access_token_expires_at' => now()->addSeconds($newTokens['expire_in'] ?? 14400),
-                        'refresh_token_expires_at' => now()->addDays(30),
+                        'access_token_expires_at' => now()->addSeconds((int) ($newTokens['expire_in'] ?? 14400)),
+                        'refresh_token_expires_at' => !empty($newTokens['refresh_token_expire_in'])
+                            ? now()->addSeconds((int) $newTokens['refresh_token_expire_in'])
+                            : now()->addDays(30),
                         'last_refreshed_at' => now(),
                         'last_refresh_failed_at' => null,
                         'last_refresh_error' => null,
@@ -318,6 +320,7 @@ class ShopeeService
     public function clearStoreCache(ShopeeStore $store): void
     {
         Cache::forget($this->tokenCacheKey($store));
+        Cache::forget("shopee:token:shop_{$store->shop_id}");
     }
 
     /**
@@ -453,6 +456,7 @@ class ShopeeService
 
     private function tokenCacheKey(ShopeeStore $store): string
     {
-        return "shopee:token:shop_{$store->shop_id}";
+        $wsPrefix = $store->workspace_id ? "ws_{$store->workspace_id}:" : '';
+        return "shopee:token:{$wsPrefix}shop_{$store->shop_id}";
     }
 }

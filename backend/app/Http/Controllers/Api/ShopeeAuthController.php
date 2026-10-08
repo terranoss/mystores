@@ -49,6 +49,7 @@ class ShopeeAuthController extends Controller
         $state = Str::random(64);
         ShopeeOAuthState::create([
             'user_id' => $user->id,
+            'platform' => 'shopee',
             'state_hash' => hash('sha256', $state),
             'expires_at' => now()->addMinutes(10),
         ]);
@@ -104,6 +105,7 @@ class ShopeeAuthController extends Controller
             $oauthState = DB::transaction(function () use ($validated) {
                 $oauthState = ShopeeOAuthState::query()
                     ->where('state_hash', hash('sha256', $validated['state']))
+                    ->where('platform', 'shopee')
                     ->lockForUpdate()
                     ->first();
 
@@ -147,11 +149,15 @@ class ShopeeAuthController extends Controller
                 throw new \Exception('Shopee error: '.($tokens['message'] ?? $tokens['error']));
             }
 
-            $accessTokenExpiresAt = now()->addSeconds($tokens['expire_in']);
+            if (empty($tokens['access_token']) || empty($tokens['refresh_token'])) {
+                throw new \Exception('Incomplete token response from Shopee API.');
+            }
+
+            $accessTokenExpiresAt = now()->addSeconds((int) ($tokens['expire_in'] ?? 14400));
             // refresh_token_expire_in may be returned by some Shopee sandbox responses
             $refreshExpireSeconds = $tokens['refresh_token_expire_in'] ?? null;
             $refreshTokenExpiresAt = $refreshExpireSeconds
-                ? now()->addSeconds($refreshExpireSeconds)
+                ? now()->addSeconds((int) $refreshExpireSeconds)
                 : now()->addDays(30);
             // auth_expires_at = the seller's authorization validity (365 days per Shopee docs)
             $authExpiresAt = now()->addDays(365);
@@ -311,10 +317,15 @@ class ShopeeAuthController extends Controller
             return response()->json(['message' => 'Only the workspace owner can reauthorize stores.'], 403);
         }
 
+        if (($store->platform ?? 'shopee') !== 'shopee') {
+            return response()->json(['message' => 'This store is not a Shopee store.'], 400);
+        }
+
         $state = Str::random(64);
         ShopeeOAuthState::create([
             'user_id' => $request->user()->id,
             'store_id' => $store->id,
+            'platform' => 'shopee',
             'state_hash' => hash('sha256', $state),
             'expires_at' => now()->addMinutes(10),
         ]);
@@ -353,6 +364,10 @@ class ShopeeAuthController extends Controller
             return response()->json(['message' => 'Only the workspace owner can disconnect stores.'], 403);
         }
 
+        if (($store->platform ?? 'shopee') !== 'shopee') {
+            return response()->json(['message' => 'This store is not a Shopee store.'], 400);
+        }
+
         DB::transaction(function () use ($store) {
             $store->update([
                 'is_active' => false,
@@ -387,6 +402,10 @@ class ShopeeAuthController extends Controller
     {
         if (!$this->workspaceAccess->isOwnerOfStore($request->user(), $store)) {
             return response()->json(['message' => 'Only the workspace owner can unlink stores.'], 403);
+        }
+
+        if (($store->platform ?? 'shopee') !== 'shopee') {
+            return response()->json(['message' => 'This store is not a Shopee store.'], 400);
         }
 
         $validated = $request->validate([
