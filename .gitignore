@@ -19,6 +19,6 @@ test-screenshots/
 test-results/
 node_modules/
 
-# graphify cache & internals
-graphify-out/cache/
-graphify-out/.graphify_*
+# graphify
+graphify-out/
+
