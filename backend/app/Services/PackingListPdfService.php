@@ -53,7 +53,7 @@ class PackingListPdfService
             $qty = (int) $item->quantity;
             $price = number_format((float) $item->price, 2);
             $lineTotal = number_format((float) $item->price * $qty, 2);
-            $sku = e($item->model_id ? (string) $item->model_id : (string) $item->item_id);
+            $sku = e($item->sku ?: ($item->model_id ? (string) $item->model_id : (string) $item->item_id));
             $rows .= "<tr>
                 <td class=\"c item-meta\">{$lineNo}</td>
                 <td class=\"item-meta\">{$sku}</td>

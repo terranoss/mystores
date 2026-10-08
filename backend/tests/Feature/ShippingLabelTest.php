@@ -78,6 +78,43 @@ class ShippingLabelTest extends TestCase
         );
     }
 
+    public function test_packing_list_pdf_renders_real_sku_when_present(): void
+    {
+        $store = $this->makeStore();
+        $order = Order::create([
+            'store_id' => $store->id,
+            'order_sn' => 'ORD-REAL-SKU-TEST',
+            'order_status' => 'PROCESSED',
+            'total_amount' => 50.00,
+            'currency' => 'MYR',
+            'buyer_username' => 'buyer_two',
+            'ordered_at' => now(),
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'item_id' => 9999,
+            'model_id' => 8888,
+            'item_name' => 'Fiddle Leaf Fig',
+            'sku' => 'FLF-PREMIUM-M',
+            'quantity' => 1,
+            'price' => 50.00,
+        ]);
+
+        $service = $this->app->make(PackingListPdfService::class);
+        $order->load(['items', 'store']);
+        $ref = new \ReflectionClass($service);
+        $method = $ref->getMethod('renderHtml');
+        $method->setAccessible(true);
+        $html = $method->invoke($service, $order);
+
+        $this->assertStringContainsString('FLF-PREMIUM-M', $html);
+
+        $pdf = $service->generate($order);
+        $this->assertStringStartsWith('%PDF', $pdf);
+        $this->assertGreaterThan(500, strlen($pdf));
+    }
+
     public function test_download_shipping_label_returns_awb_and_packing_list(): void
     {
         $store = $this->makeStore();
