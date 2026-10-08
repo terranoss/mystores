@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\InventoryLog;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ShopeeStore;
@@ -474,24 +475,67 @@ class ProductService
                         if (!isset($entry['model_id'])) {
                             continue;
                         }
-                        ProductVariant::where('product_id', $product->id)
+                        $variant = ProductVariant::where('product_id', $product->id)
                             ->where('model_id', $entry['model_id'])
-                            ->update([
-                                'stock' => $entry['seller_stock'][0]['stock'] ?? 0,
-                            ]);
+                            ->first();
+
+                        $newStock = (int) ($entry['seller_stock'][0]['stock'] ?? 0);
+                        if ($variant) {
+                            $oldStock = $variant->stock;
+                            $variant->update(['stock' => $newStock]);
+                            $this->recordInventoryLog(
+                                $product,
+                                $variant->id,
+                                $variant->model_sku,
+                                $oldStock,
+                                $newStock,
+                                null,
+                                null,
+                                'local_staged',
+                                'success'
+                            );
+                        }
                     }
                     $sum = (int) ProductVariant::where('product_id', $product->id)->sum('stock');
                     $product->update(['stock' => $sum, 'needs_push' => true]);
                 } elseif ($product->has_variants) {
                     $newStock = (int) ($stockList[0]['seller_stock'][0]['stock'] ?? 0);
-                    ProductVariant::where('product_id', $product->id)->update(['stock' => $newStock]);
-                    $count = max(1, ProductVariant::where('product_id', $product->id)->count());
+                    $variants = ProductVariant::where('product_id', $product->id)->get();
+                    foreach ($variants as $variant) {
+                        $oldStock = $variant->stock;
+                        $variant->update(['stock' => $newStock]);
+                        $this->recordInventoryLog(
+                            $product,
+                            $variant->id,
+                            $variant->model_sku,
+                            $oldStock,
+                            $newStock,
+                            null,
+                            null,
+                            'local_staged',
+                            'success'
+                        );
+                    }
+                    $count = max(1, $variants->count());
                     $product->update(['stock' => $newStock * $count, 'needs_push' => true]);
                 } else {
+                    $oldStock = $product->stock;
+                    $newStock = (int) ($stockList[0]['seller_stock'][0]['stock'] ?? 0);
                     $product->update([
-                        'stock' => $stockList[0]['seller_stock'][0]['stock'] ?? 0,
+                        'stock' => $newStock,
                         'needs_push' => true,
                     ]);
+                    $this->recordInventoryLog(
+                        $product,
+                        null,
+                        $product->item_sku,
+                        $oldStock,
+                        $newStock,
+                        null,
+                        null,
+                        'local_staged',
+                        'success'
+                    );
                 }
             }
 
@@ -502,11 +546,26 @@ class ProductService
                         if (!isset($entry['model_id'])) {
                             continue;
                         }
-                        ProductVariant::where('product_id', $product->id)
+                        $variant = ProductVariant::where('product_id', $product->id)
                             ->where('model_id', $entry['model_id'])
-                            ->update([
-                                'price' => $entry['original_price'] ?? 0,
-                            ]);
+                            ->first();
+
+                        $newPrice = (float) ($entry['original_price'] ?? 0);
+                        if ($variant) {
+                            $oldPrice = $variant->price;
+                            $variant->update(['price' => $newPrice]);
+                            $this->recordInventoryLog(
+                                $product,
+                                $variant->id,
+                                $variant->model_sku,
+                                null,
+                                null,
+                                $oldPrice,
+                                $newPrice,
+                                'local_staged',
+                                'success'
+                            );
+                        }
                     }
                     $minPrice = ProductVariant::where('product_id', $product->id)->min('price');
                     $product->update([
@@ -515,13 +574,41 @@ class ProductService
                     ]);
                 } elseif ($product->has_variants) {
                     $newPrice = (float) ($priceList[0]['original_price'] ?? 0);
-                    ProductVariant::where('product_id', $product->id)->update(['price' => $newPrice]);
+                    $variants = ProductVariant::where('product_id', $product->id)->get();
+                    foreach ($variants as $variant) {
+                        $oldPrice = $variant->price;
+                        $variant->update(['price' => $newPrice]);
+                        $this->recordInventoryLog(
+                            $product,
+                            $variant->id,
+                            $variant->model_sku,
+                            null,
+                            null,
+                            $oldPrice,
+                            $newPrice,
+                            'local_staged',
+                            'success'
+                        );
+                    }
                     $product->update(['price' => $newPrice, 'needs_push' => true]);
                 } else {
+                    $oldPrice = $product->price;
+                    $newPrice = (float) ($priceList[0]['original_price'] ?? 0);
                     $product->update([
-                        'price' => $priceList[0]['original_price'] ?? 0,
+                        'price' => $newPrice,
                         'needs_push' => true,
                     ]);
+                    $this->recordInventoryLog(
+                        $product,
+                        null,
+                        $product->item_sku,
+                        null,
+                        null,
+                        $oldPrice,
+                        $newPrice,
+                        'local_staged',
+                        'success'
+                    );
                 }
             }
         });
@@ -566,26 +653,65 @@ class ProductService
 
                     if ($variant) {
                         $changes = [];
+                        $oldStock = $variant->stock;
+                        $oldPrice = $variant->price;
+                        $newStock = null;
+                        $newPrice = null;
+
                         if (array_key_exists('Quantity', $update)) {
-                            $changes['stock'] = (int) $update['Quantity'];
+                            $newStock = (int) $update['Quantity'];
+                            $changes['stock'] = $newStock;
                         }
                         if (array_key_exists('Price', $update)) {
-                            $changes['price'] = (float) $update['Price'];
+                            $newPrice = (float) $update['Price'];
+                            $changes['price'] = $newPrice;
                         }
                         if ($changes !== []) {
                             $variant->update($changes);
                             $updatedVariantIds[] = $variant->id;
+                            $this->recordInventoryLog(
+                                $product,
+                                $variant->id,
+                                $variant->model_sku,
+                                $newStock !== null ? $oldStock : null,
+                                $newStock,
+                                $newPrice !== null ? $oldPrice : null,
+                                $newPrice,
+                                'user',
+                                'success'
+                            );
                         }
                     }
 
                     continue;
                 }
 
+                $oldStock = $product->stock;
+                $oldPrice = $product->price;
+                $newStock = null;
+                $newPrice = null;
+
                 if (array_key_exists('Quantity', $update)) {
-                    $productData['stock'] = (int) $update['Quantity'];
+                    $newStock = (int) $update['Quantity'];
+                    $productData['stock'] = $newStock;
                 }
                 if (array_key_exists('Price', $update)) {
-                    $productData['price'] = (float) $update['Price'];
+                    $newPrice = (float) $update['Price'];
+                    $productData['price'] = $newPrice;
+                }
+
+                if ($newStock !== null || $newPrice !== null) {
+                    $this->recordInventoryLog(
+                        $product,
+                        null,
+                        $product->item_sku,
+                        $newStock !== null ? $oldStock : null,
+                        $newStock,
+                        $newPrice !== null ? $oldPrice : null,
+                        $newPrice,
+                        'user',
+                        'success'
+                    );
                 }
             }
 
@@ -603,6 +729,35 @@ class ProductService
         });
 
         return $product->fresh()->load('variants');
+    }
+
+    /**
+     * Record an inventory audit log entry.
+     */
+    private function recordInventoryLog(
+        Product $product,
+        ?int $variantId,
+        ?string $sku,
+        ?int $oldStock,
+        ?int $newStock,
+        float|int|string|null $oldPrice,
+        float|int|string|null $newPrice,
+        string $source = 'user',
+        string $status = 'success',
+        ?string $errorMessage = null,
+    ): InventoryLog {
+        return InventoryLog::create([
+            'product_id' => $product->id,
+            'product_variant_id' => $variantId,
+            'sku' => $sku,
+            'old_stock' => $oldStock,
+            'new_stock' => $newStock,
+            'old_price' => $oldPrice !== null ? (float) $oldPrice : null,
+            'new_price' => $newPrice !== null ? (float) $newPrice : null,
+            'source' => $source,
+            'status' => $status,
+            'error_message' => $errorMessage,
+        ]);
     }
 
     /**
