@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { PageShell } from '../components/PageShell';
 
 export default function AuthDocs() {
@@ -344,6 +345,19 @@ $authUrl = "{$host}{$path}?partner_id={$partnerId}&timestamp={$timestamp}&sign={
                   </dd>
                 </div>
               </dl>
+              <div className="p-3.5 bg-ink-50 border border-ink-200 rounded-lg">
+                <h4 className="font-semibold text-ink-950 text-xs uppercase tracking-wide">
+                  Looking for the everyday menus?
+                </h4>
+                <p className="text-xs text-ink-600 mt-1 leading-relaxed">
+                  This page covers how store connections work. For a plain-language walkthrough of
+                  every sidebar item, button, and filter in the app, see the{' '}
+                  <Link to="/docs/menu" className="font-semibold text-ink-900 underline">
+                    Menu Guide
+                  </Link>
+                  .
+                </p>
+              </div>
             </section>
           </article>
         </div>

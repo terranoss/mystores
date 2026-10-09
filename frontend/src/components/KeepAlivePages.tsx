@@ -9,6 +9,7 @@ import Promotions from '../pages/Promotions';
 import Team from '../pages/Team';
 import Settings from '../pages/Settings';
 import AuthDocs from '../pages/AuthDocs';
+import MenuGuide from '../pages/MenuGuide';
 
 /** Frozen path key for keep-alive slots so route hooks do not follow the active URL. */
 export const KeepAlivePathContext = createContext<string | null>(null);
@@ -41,6 +42,7 @@ const LIGHT: LightEntry[] = [
   { match: (p) => p === '/team', render: () => <Team /> },
   { match: (p) => p === '/settings', render: () => <Settings /> },
   { match: (p) => p === '/docs/auth', render: () => <AuthDocs /> },
+  { match: (p) => p === '/docs/menu', render: () => <MenuGuide /> },
 ];
 
 function Slot({
