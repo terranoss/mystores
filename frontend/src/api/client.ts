@@ -1187,8 +1187,10 @@ export interface WorkspaceCredentials {
   partner_id?: string | null;
   partner_key?: string | null;
   push_partner_key?: string | null;
+  shopee_redirect_url?: string | null;
   app_key?: string | null;
   app_secret?: string | null;
+  lazada_redirect_url?: string | null;
   created_at: string;
   updated_at: string;
 }

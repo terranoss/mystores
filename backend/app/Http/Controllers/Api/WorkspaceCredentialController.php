@@ -54,8 +54,10 @@ class WorkspaceCredentialController extends Controller
             'partner_id' => $shopeeCred?->partner_id ?? '',
             'partner_key' => $shopeeCred && !empty($shopeeCred->partner_key) ? self::MASKED_SECRET : '',
             'push_partner_key' => $shopeeCred && !empty($shopeeCred->push_partner_key) ? self::MASKED_SECRET : '',
+            'shopee_redirect_url' => $shopeeCred?->redirect_url ?? (string) config('shopee.redirect_url', ''),
             'app_key' => $lazadaCred?->app_key ?? '',
             'app_secret' => $lazadaCred && !empty($lazadaCred->app_secret) ? self::MASKED_SECRET : '',
+            'lazada_redirect_url' => $lazadaCred?->redirect_url ?? (string) config('lazada.redirect_url', ''),
         ]);
     }
 
@@ -81,12 +83,14 @@ class WorkspaceCredentialController extends Controller
             'partner_id' => 'sometimes|nullable|string|max:255',
             'partner_key' => 'sometimes|nullable|string',
             'push_partner_key' => 'sometimes|nullable|string',
+            'shopee_redirect_url' => 'sometimes|nullable|string|max:500',
             'app_key' => 'sometimes|nullable|string|max:255',
             'app_secret' => 'sometimes|nullable|string',
+            'lazada_redirect_url' => 'sometimes|nullable|string|max:500',
         ]);
 
         // Update or create Shopee credentials
-        if ($request->hasAny(['partner_id', 'partner_key', 'push_partner_key'])) {
+        if ($request->hasAny(['partner_id', 'partner_key', 'push_partner_key', 'shopee_redirect_url'])) {
             $shopeeCred = $workspace->credentials()
                 ->where('platform', 'shopee')
                 ->first() ?? new WorkspaceCredential([
@@ -103,12 +107,15 @@ class WorkspaceCredentialController extends Controller
             if ($this->isSecretUpdate($request, 'push_partner_key')) {
                 $shopeeCred->push_partner_key = $this->normalizeValue($request->push_partner_key);
             }
+            if ($request->has('shopee_redirect_url')) {
+                $shopeeCred->redirect_url = $this->normalizeValue($request->shopee_redirect_url);
+            }
 
             $shopeeCred->save();
         }
 
         // Update or create Lazada credentials
-        if ($request->hasAny(['app_key', 'app_secret'])) {
+        if ($request->hasAny(['app_key', 'app_secret', 'lazada_redirect_url'])) {
             $lazadaCred = $workspace->credentials()
                 ->where('platform', 'lazada')
                 ->first() ?? new WorkspaceCredential([
@@ -121,6 +128,9 @@ class WorkspaceCredentialController extends Controller
             }
             if ($this->isSecretUpdate($request, 'app_secret')) {
                 $lazadaCred->app_secret = $this->normalizeValue($request->app_secret);
+            }
+            if ($request->has('lazada_redirect_url')) {
+                $lazadaCred->redirect_url = $this->normalizeValue($request->lazada_redirect_url);
             }
 
             $lazadaCred->save();

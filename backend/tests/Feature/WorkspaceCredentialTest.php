@@ -60,6 +60,8 @@ class WorkspaceCredentialTest extends TestCase
             'partner_key' => '[SET]',
             'push_partner_key' => '[SET]',
         ]);
+        $this->assertArrayHasKey('shopee_redirect_url', $response->json());
+        $this->assertArrayHasKey('lazada_redirect_url', $response->json());
         $this->assertStringNotContainsString('super-secret-key', $response->getContent());
     }
 
@@ -88,14 +90,18 @@ class WorkspaceCredentialTest extends TestCase
         $this->actingAs($owner)->putJson('/api/workspace/credentials', [
             'partner_id' => '999',
             'partner_key' => 'first-secret',
+            'shopee_redirect_url' => 'https://custom.shopee.test/callback',
             'app_key' => 'lazada-app',
             'app_secret' => 'lazada-secret',
+            'lazada_redirect_url' => 'https://custom.lazada.test/callback',
         ])->assertOk();
 
         $shopee = WorkspaceCredential::where('workspace_id', $workspace->id)->where('platform', 'shopee')->firstOrFail();
         $lazada = WorkspaceCredential::where('workspace_id', $workspace->id)->where('platform', 'lazada')->firstOrFail();
         $this->assertSame('first-secret', $shopee->partner_key);
+        $this->assertSame('https://custom.shopee.test/callback', $shopee->redirect_url);
         $this->assertSame('lazada-secret', $lazada->app_secret);
+        $this->assertSame('https://custom.lazada.test/callback', $lazada->redirect_url);
 
         // Explicit empty string clears the stored secret.
         $this->actingAs($owner)->putJson('/api/workspace/credentials', [
