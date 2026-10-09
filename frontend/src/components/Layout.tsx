@@ -25,7 +25,11 @@ const getNavItems = () => {
   ];
 
   // Settings hosts per-user actions (change password) plus owner-only platform credentials
-  return [...baseNav, { label: 'Settings', path: '/settings', icon: '⚙' }];
+  return [
+    ...baseNav,
+    { label: 'Settings', path: '/settings', icon: '⚙' },
+    { label: 'Documentation', path: '/docs/auth', icon: '📖' },
+  ];
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
