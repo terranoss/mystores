@@ -12,7 +12,17 @@ use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\ShopeeAuthController;
 use App\Http\Controllers\Api\WorkspaceController;
 use App\Http\Controllers\Api\WorkspaceCredentialController;
+use App\Http\Controllers\InstallController;
 use Illuminate\Support\Facades\Route;
+
+// Installer routes (publicly accessible before installation lock)
+Route::prefix('install')->group(function () {
+    Route::get('/status', [InstallController::class, 'status']);
+    Route::get('/preflight', [InstallController::class, 'preflight']);
+    Route::post('/test-db', [InstallController::class, 'testDb'])->middleware('throttle:10,1');
+    Route::post('/activate-license', [InstallController::class, 'activateLicense'])->middleware('throttle:10,1');
+    Route::post('/execute', [InstallController::class, 'execute'])->middleware('throttle:5,1');
+});
 
 // Public routes
 // Registration is disabled — new accounts are created via artisan tinker or direct DB insert

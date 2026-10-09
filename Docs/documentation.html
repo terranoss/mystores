@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyStore — Installation & Setup Documentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: #0f172a;
+      --bg-card-hover: #1e293b;
+      --border: #1e293b;
+      --border-focus: #3b82f6;
+      --primary: #4f46e5;
+      --primary-light: #6366f1;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --sidebar-width: 290px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    aside {
+      width: var(--sidebar-width);
+      background-color: #0b1120;
+      border-right: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 28px 20px;
+      flex-shrink: 0;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: white;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      font-size: 11px;
+      color: var(--primary-light);
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      padding: 2px 7px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .nav-group-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin: 20px 0 8px 8px;
+    }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 500;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: white;
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-link.active {
+      color: #818cf8;
+      background-color: rgba(99, 102, 241, 0.1);
+      font-weight: 600;
+    }
+
+    /* Main Content */
+    main {
+      flex: 1;
+      padding: 40px 60px 80px;
+      max-width: 980px;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4 {
+      color: white;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: 34px;
+      margin-bottom: 12px;
+      line-height: 1.25;
+    }
+
+    h2 {
+      font-size: 24px;
+      margin: 48px 0 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 18px;
+      margin: 28px 0 10px;
+    }
+
+    p {
+      color: #cbd5e1;
+      margin-bottom: 16px;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    /* Cards & Containers */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 20px 0;
+    }
+
+    .callout {
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      font-size: 14px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .callout-info {
+      background: rgba(79, 70, 229, 0.08);
+      border: 1px solid rgba(79, 70, 229, 0.25);
+      color: #c7d2fe;
+    }
+
+    .callout-success {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: #a7f3d0;
+    }
+
+    .callout-warning {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      color: #fde68a;
+    }
+
+    /* Code Blocks */
+    pre {
+      background: #030712;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13.5px;
+      color: #e2e8f0;
+      margin: 14px 0 20px;
+      position: relative;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(255, 255, 255, 0.07);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      color: #f1f5f9;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .copy-btn:hover {
+      background: #334155;
+      color: white;
+    }
+
+    /* Step Badge & Timeline */
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary);
+      color: white;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+
+    .table th, .table td {
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      text-align: left;
+    }
+
+    .table th {
+      background: #0c1322;
+      color: white;
+      font-weight: 600;
+    }
+
+    .table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    @media (max-width: 900px) {
+      body {
+        flex-direction: column;
+      }
+      aside {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      main {
+        padding: 30px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside>
+    <div class="brand-box">
+      <div class="brand-icon">MS</div>
+      <div>
+        <div class="brand-title">MyStore Docs</div>
+        <span class="brand-badge">Version 1.0</span>
+      </div>
+    </div>
+
+    <div class="nav-group-title">Getting Started</div>
+    <ul class="nav-links">
+      <li><a href="#overview" class="nav-link active">Package Overview</a></li>
+      <li><a href="#requirements" class="nav-link">Server Requirements</a></li>
+    </ul>
+
+    <div class="nav-group-title">Website Setup</div>
+    <ul class="nav-links">
+      <li><a href="#web-database" class="nav-link">1. Database Creation</a></li>
+      <li><a href="#web-upload" class="nav-link">2. Uploading Files</a></li>
+      <li><a href="#web-wizard" class="nav-link">3. Web Setup Wizard</a></li>
+      <li><a href="#web-license" class="nav-link">4. License Activation</a></li>
+    </ul>
+
+    <div class="nav-group-title">Flutter Mobile App</div>
+    <ul class="nav-links">
+      <li><a href="#app-instant" class="nav-link">A. Instant APK Setup (QR)</a></li>
+      <li><a href="#app-custom" class="nav-link">B. Compile from Source</a></li>
+      <li><a href="#app-signing" class="nav-link">C. Release Keystore</a></li>
+    </ul>
+
+    <div class="nav-group-title">Help & Troubleshooting</div>
+    <ul class="nav-links">
+      <li><a href="#marketplaces" class="nav-link">Marketplace Setup</a></li>
+      <li><a href="#troubleshooting" class="nav-link">Common FAQs & Errors</a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main>
+    <div id="overview">
+      <h1>MyStore Installation Guide</h1>
+      <p>
+        Welcome to MyStore! This guide walks you through setting up both your self-hosted **Web Management Dashboard** and the **Flutter Companion Mobile App**.
+      </p>
+
+      <div class="card">
+        <h3 style="margin-top:0;">What's in your download zip package:</h3>
+        <p style="margin-bottom:12px; font-size:13.5px; color:#94a3b8;">When you extract <code>mystores-v1.0.0.zip</code>, you will find:</p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Folder / File</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>web/</code></td>
+              <td>Pre-compiled backend and frontend. Upload this directly to your hosting / cPanel.</td>
+            </tr>
+            <tr>
+              <td><code>mobile/</code></td>
+              <td>Full Flutter companion mobile application source code.</td>
+            </tr>
+            <tr>
+              <td><code>MyStore-v1.0.0.apk</code></td>
+              <td>Pre-built Android APK ready for instant install on phones, tablets, or POS devices.</td>
+            </tr>
+            <tr>
+              <td><code>documentation.html</code></td>
+              <td>This offline documentation guide.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Requirements -->
+    <div id="requirements">
+      <h2>Server Requirements</h2>
+      <p>Ensure your shared hosting (cPanel), VPS, or cloud server meets these requirements:</p>
+      <ul style="color:#cbd5e1; margin-left: 24px; margin-bottom: 20px; font-size: 14.5px; line-height: 2;">
+        <li><strong>PHP:</strong> Version 8.2 or newer</li>
+        <li><strong>Database:</strong> MySQL 5.7+ or MariaDB 10.3+ (or SQLite)</li>
+        <li><strong>Required PHP Extensions:</strong> <code>pdo_mysql</code>, <code>openssl</code>, <code>mbstring</code>, <code>curl</code>, <code>gd</code>, <code>zip</code>, <code>fileinfo</code>, <code>dom</code></li>
+        <li><strong>Web Server:</strong> Apache (with <code>mod_rewrite</code> enabled) or Nginx</li>
+      </ul>
+
+      <div class="callout callout-info">
+        <div>💡</div>
+        <div>
+          <strong>Note for cPanel Users:</strong> You do NOT need Node.js or Composer installed on your cPanel. The <code>web/</code> folder is completely pre-built and ready to run.
+        </div>
+      </div>
+    </div>
+
+    <!-- Web Database -->
+    <div id="web-database">
+      <h2>1. Database Creation (cPanel)</h2>
+      <p>Before launching the web installer, create an empty MySQL database in your hosting control panel:</p>
+      <ol style="color:#cbd5e1; margin-left: 24px; line-height: 1.9; font-size: 14.5px;">
+        <li>Log into your <strong>cPanel</strong>.</li>
+        <li>Navigate to <strong>MySQL Databases</strong> (or <em>MySQL Database Wizard</em>).</li>
+        <li>Create a new database (e.g., <code>username_mystore</code>).</li>
+        <li>Create a database user with a secure password.</li>
+        <li>Add the user to the database and check <strong>ALL PRIVILEGES</strong>.</li>
+      </ol>
+    </div>
+
+    <!-- Web Upload -->
+    <div id="web-upload">
+      <h2>2. Uploading Files to Hosting</h2>
+      <ol style="color:#cbd5e1; margin-left: 24px; line-height: 1.9; font-size: 14.5px;">
+        <li>Open cPanel <strong>File Manager</strong>.</li>
+        <li>Go to your domain document root (usually <code>public_html</code> or your subdomain directory).</li>
+        <li>Upload all files inside the <code>web/</code> directory of your downloaded package.</li>
+        <li>Ensure the <code>storage/</code> and <code>bootstrap/cache/</code> folders have write permissions (Permission <code>755</code> or <code>775</code>).</li>
+      </ol>
+    </div>
+
+    <!-- Web Setup Wizard -->
+    <div id="web-wizard">
+      <h2>3. The Web Setup Wizard</h2>
+      <p>Open your browser and navigate to your website:</p>
+      <pre><code>https://your-domain.com/install</code></pre>
+      <p>MyStore automatically presents a 5-step interactive setup wizard:</p>
+      
+      <div class="card">
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 14px; font-size: 14px;">
+          <li><span class="step-badge">1</span> <strong>Preflight Check:</strong> Automatically validates your PHP version, extensions, and directory write permissions with instant green badges.</li>
+          <li><span class="step-badge">2</span> <strong>License Activation:</strong> Enter your License Key purchased from Stacklane (e.g. <code>MSTR-XXXX-XXXX-XXXX</code>). It activates seamlessly via HTTPS.</li>
+          <li><span class="step-badge">3</span> <strong>Database Connection:</strong> Enter your DB Host (usually <code>127.0.0.1</code>), Database Name, User, and Password. Click <em>"Test Connection"</em> to verify before proceeding.</li>
+          <li><span class="step-badge">4</span> <strong>Admin & Store Setup:</strong> Personalize your Store Name and choose your primary Superadmin Name, Email, and Password.</li>
+          <li><span class="step-badge">5</span> <strong>Initialization & Lockout:</strong> MyStore runs migrations, seeds initial data, saves your license certificate, and permanently locks the <code>/install</code> routes.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Mobile Setup -->
+    <div id="app-instant">
+      <h2>Flutter Mobile App Setup</h2>
+      
+      <h3>Option A: Instant Setup (Zero-Compile with Pre-built APK)</h3>
+      <p>Non-technical buyers and store staff can start using the mobile app in under 60 seconds without installing Flutter or Android Studio:</p>
+
+      <ol style="color:#cbd5e1; margin-left: 24px; line-height: 1.9; font-size: 14.5px;">
+        <li>Send the included <code>MyStore-v1.0.0.apk</code> file to your Android phone, tablet, or handheld POS device.</li>
+        <li>Tap to install the APK (allow <em>"Install from unknown sources"</em> if prompted).</li>
+        <li>Launch the MyStore app.</li>
+        <li>On first launch, the app asks: <strong>"Connect to your MyStore"</strong>.</li>
+        <li>Type your domain: <code>https://your-store.com</code> (or scan the QR Code displayed on your web dashboard under <em>Settings &gt; Mobile App</em>).</li>
+        <li>Log in with your administrator or staff credentials.</li>
+      </ol>
+    </div>
+
+    <!-- Mobile Custom -->
+    <div id="app-custom">
+      <h3>Option B: Developer Customization (Compiling from Source)</h3>
+      <p>If you want to customize your branding, logo, or publish the app on your own Google Play Store account:</p>
+
+      <div class="card">
+        <h4 style="margin-bottom: 8px;">1. Point Backend URL</h4>
+        <p style="font-size: 13.5px;">Open <code>mobile/lib/core/api/api_endpoints.dart</code> and update line 5:</p>
+        <pre><code>static const String baseUrl = 'https://your-domain.com/api';</code></pre>
+
+        <h4 style="margin-top: 18px; margin-bottom: 8px;">2. Change App Name</h4>
+        <p style="font-size: 13.5px;">Open <code>mobile/android/app/src/main/AndroidManifest.xml</code> and change the <code>android:label</code>:</p>
+        <pre><code>&lt;application android:label="Your Brand Name" ... &gt;</code></pre>
+
+        <h4 style="margin-top: 18px; margin-bottom: 8px;">3. Change Application ID / Package Name</h4>
+        <p style="font-size: 13.5px;">Open <code>mobile/android/app/build.gradle.kts</code> and change lines 18 and 33:</p>
+        <pre><code>applicationId = "com.yourcompany.mystores"</code></pre>
+
+        <h4 style="margin-top: 18px; margin-bottom: 8px;">4. Replace Launcher Icons</h4>
+        <p style="font-size: 13.5px;">Replace the <code>ic_launcher.png</code> files in <code>mobile/android/app/src/main/res/mipmap-*/</code> with your company logo.</p>
+      </div>
+
+      <div id="app-signing">
+        <h3>Release Compilation Commands</h3>
+        <p>In your terminal inside the <code>mobile/</code> directory, execute:</p>
+        <pre><code># 1. Fetch dependencies
+flutter pub get
+
+# 2. Build Release APK (for direct phone / POS terminal install)
+flutter build apk --release
+
+# 3. Build Google Play Store App Bundle (.aab)
+flutter build appbundle --release</code></pre>
+        <p style="font-size: 13.5px; color: #94a3b8;">
+          Your compiled APK will be generated at: <code>mobile/build/app/outputs/flutter-apk/app-release.apk</code>
+        </p>
+      </div>
+    </div>
+
+    <!-- Marketplace Integrations -->
+    <div id="marketplaces">
+      <h2>Marketplace Integration Guides</h2>
+      <p>Connect your Shopee and Lazada seller accounts from your web dashboard:</p>
+      <div class="card">
+        <h4 style="margin-bottom: 8px;">Shopee Open Platform:</h4>
+        <p style="font-size: 13.5px;">
+          Go to <em>Settings &gt; Integrations &gt; Shopee</em>. Enter your <strong>Partner ID</strong> and <strong>Partner Key</strong>. Set your authorized redirect URL in Shopee Open Console to:
+        </p>
+        <pre><code>https://your-domain.com/api/shopee/callback</code></pre>
+
+        <h4 style="margin-top: 18px; margin-bottom: 8px;">Lazada Open Platform:</h4>
+        <p style="font-size: 13.5px;">
+          Go to <em>Settings &gt; Integrations &gt; Lazada</em>. Enter your <strong>App Key</strong> and <strong>App Secret</strong>. Set your authorized callback in Lazada Open Platform to:
+        </p>
+        <pre><code>https://your-domain.com/api/lazada/callback</code></pre>
+      </div>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div id="troubleshooting">
+      <h2>Common FAQs & Troubleshooting</h2>
+
+      <div class="card">
+        <h4 style="color:#f87171; margin-bottom: 6px;">500 Internal Server Error after uploading</h4>
+        <p style="font-size: 13.5px;">
+          Ensure file permissions are correct. On cPanel, directories must be <code>755</code> and files <code>644</code>. Verify that <code>storage/</code> and <code>bootstrap/cache/</code> are writable by PHP.
+        </div>
+
+      <div class="card">
+        <h4 style="color:#f87171; margin-bottom: 6px;">Removing /public from URL</h4>
+        <p style="font-size: 13.5px;">
+          If your URLs require <code>/public/</code>, make sure Apache's <code>mod_rewrite</code> is enabled and your domain document root points directly to the web root folder.
+        </div>
+
+      <div class="card">
+        <h4 style="color:#f87171; margin-bottom: 6px;">How do I re-run the installer?</h4>
+        <p style="font-size: 13.5px;">
+          For security, the installer is permanently disabled once completed. If you need to reinstall from scratch, delete the <code>storage/installed</code> file and <code>.env</code> file.
+        </div>
+    </div>
+
+    <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: #64748b; text-align: center;">
+      &copy; MyStore Application. All rights reserved. Powered by Stacklane Licensing.
+    </div>
+  </main>
+
+  <script>
+    // Copy code button script
+    document.querySelectorAll('pre').forEach(block => {
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.innerText = 'Copy';
+      btn.addEventListener('click', () => {
+        const code = block.querySelector('code');
+        navigator.clipboard.writeText(code.innerText).then(() => {
+          btn.innerText = 'Copied!';
+          setTimeout(() => btn.innerText = 'Copy', 2000);
+        });
+      });
+      block.appendChild(btn);
+    });
+
+    // Smooth scroll active links
+    const links = document.querySelectorAll('.nav-link');
+    links.forEach(link => {
+      link.addEventListener('click', () => {
+        links.forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
