@@ -28,7 +28,15 @@ const getNavItems = () => {
   return [
     ...baseNav,
     { label: 'Settings', path: '/settings', icon: '⚙' },
-    { label: 'Documentation', path: '/docs/auth', icon: '📖' },
+    {
+      label: 'Documentation',
+      path: '/docs/auth',
+      icon: '📖',
+      children: [
+        { label: 'Authentication', path: '/docs/auth', icon: '🔐' },
+        { label: 'Menu Guide', path: '/docs/menu', icon: '☰' },
+      ]
+    },
   ];
 };
 
