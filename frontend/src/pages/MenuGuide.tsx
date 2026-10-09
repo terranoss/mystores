@@ -349,10 +349,9 @@ export default function MenuGuide() {
                   </table>
                 </div>
                 <Callout>
-                  Clicking an urgent-order notification opens the Orders page, but the{' '}
-                  <strong>Overdue</strong>, <strong>Due today</strong>, and{' '}
-                  <strong>Due in 48h</strong> filter is <em>not</em> applied for you. Tap the chip
-                  you want on the Orders page to apply it yourself.
+                  Clicking an urgent-order notification opens the Orders page with{' '}
+                  <strong>Due today</strong> already applied, so you land straight on the orders
+                  that need shipping. Change the chip as normal if you want a different view.
                 </Callout>
               </Sub>
 
