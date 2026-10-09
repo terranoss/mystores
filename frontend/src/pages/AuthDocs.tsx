@@ -4,9 +4,9 @@ import { PageShell } from '../components/PageShell';
 export default function AuthDocs() {
   const [activeSection, setActiveSection] = useState<string>('overview');
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://<your-domain>';
-  const shopeeCallback = `${origin}/api/shopee/callback`;
-  const lazadaCallback = `${origin}/api/lazada/callback`;
+  const shopeeCallback = 'https://<your-domain>/api/shopee/callback';
+
+  const lazadaCallback = 'https://<your-domain>/api/lazada/callback';
 
   const scrollTo = (id: string) => {
     setActiveSection(id);
