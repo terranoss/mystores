@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Spinner from '../components/Spinner';
 import OrderDetailDrawer from '../components/OrderDetailDrawer';
 import ArrangeShipmentModal from '../components/ArrangeShipmentModal';
@@ -165,6 +166,7 @@ export default function UnifiedOrdersPanel() {
   const { stores, selectedStoreId, selectedMarketplace, setSelectedMarketplace } = useStore();
   const platformFilter: PlatformFilter = selectedMarketplace;
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -331,6 +333,23 @@ export default function UnifiedOrdersPanel() {
     setStatusFilter('');
     setPage(1);
   }, [platformFilter]);
+
+  // Deep link from an urgent-order notification: /orders?urgency=due_today
+  // (/dashboard -> NotificationBell). This page is a keep-alive slot, so it stays
+  // mounted across visits and a lazy useState initializer would only ever run once.
+  // Reading on every query-string change is what makes repeat clicks work.
+  // Never clear when the param is absent - that would undo the filter we just set
+  // once the param is stripped, and would stomp filters the user chose by hand.
+  useEffect(() => {
+    const value = searchParams.get('urgency');
+    if (value === null) return;
+    if (!URGENCY_CHIPS.some((chip) => chip.value === value)) return;
+    setUrgency(value as UrgencyFilter);
+    setPage(1);
+    const next = new URLSearchParams(searchParams);
+    next.delete('urgency');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     setPage(1);
