@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "deploy": "python deploy/deploy.py",
+    "package": "python scripts/release_builder.py",
     "build": "npm --prefix frontend run build",
     "dev": "npm --prefix frontend run dev"
   }
