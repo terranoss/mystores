@@ -3,13 +3,6 @@ import { PageShell } from '../components/PageShell';
 
 export default function AuthDocs() {
   const [activeSection, setActiveSection] = useState<string>('overview');
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  const copyToClipboard = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://<your-domain>';
   const shopeeCallback = `${origin}/api/shopee/callback`;
@@ -55,46 +48,6 @@ export default function AuthDocs() {
                 </button>
               ))}
             </nav>
-
-            <div className="mt-6 pt-4 border-t border-ink-100 text-xs text-ink-500">
-              <p className="font-semibold text-ink-700 mb-1">Registered Endpoints</p>
-              <div className="space-y-2 mt-2">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-ink-400">Shopee Callback</span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <input
-                      type="text"
-                      readOnly
-                      value={shopeeCallback}
-                      className="w-full bg-ink-50 border border-ink-200 rounded px-1.5 py-0.5 text-[11px] font-mono text-ink-800"
-                    />
-                    <button
-                      onClick={() => copyToClipboard(shopeeCallback, 'shopee-side')}
-                      className="px-1.5 py-0.5 text-[11px] bg-ink-200 hover:bg-ink-300 rounded text-ink-800"
-                    >
-                      {copiedKey === 'shopee-side' ? '✓' : 'Copy'}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-ink-400">Lazada Callback</span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <input
-                      type="text"
-                      readOnly
-                      value={lazadaCallback}
-                      className="w-full bg-ink-50 border border-ink-200 rounded px-1.5 py-0.5 text-[11px] font-mono text-ink-800"
-                    />
-                    <button
-                      onClick={() => copyToClipboard(lazadaCallback, 'lazada-side')}
-                      className="px-1.5 py-0.5 text-[11px] bg-ink-200 hover:bg-ink-300 rounded text-ink-800"
-                    >
-                      {copiedKey === 'lazada-side' ? '✓' : 'Copy'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
           </aside>
 
           {/* Main Documentation Body */}
@@ -125,39 +78,46 @@ export default function AuthDocs() {
                 Both marketplaces utilize the standard <strong>OAuth 2.0 Authorization Code Grant</strong> workflow. The authorization flow is completely automated—end users log in through their respective marketplace seller consoles and authorize access. <strong>The temporary Authorization Code is intercepted and exchanged by the server automatically without any manual copying or pasting.</strong>
               </p>
 
-              {/* ASCII Protocol Diagram */}
-              <div className="bg-ink-950 text-ink-100 rounded-lg p-4 font-mono text-xs overflow-x-auto leading-tight">
-{`+-------------+             +--------------------+             +------------------+
-| User Store  |             |      MyStores      |             |  Open Platform   |
-|  (Browser)  |             |  (Backend Server)  |             | (Shopee / Lazada)|
-+------+------+             +---------+----------+             +--------+---------+
-       |                               |                                |
-       | 1. Trigger "Link Store"       |                                |
-       |------------------------------>|                                |
-       |                               | 2. Generate signed auth URL    |
-       |                               |    + 64-char CSRF state token  |
-       | 3. Redirect to platform URL   |                                |
-       |<------------------------------|                                |
-       |                                                                |
-       | 4. User logs in & clicks "Confirm / Authorize"                 |
-       |--------------------------------------------------------------->|
-       |                                                                |
-       | 5. Platform redirects browser back with ?code=...&state=...    |
-       |<---------------------------------------------------------------|
-       |                                                                |
-       | 6. Hits /api/{platform}/callback                               |
-       |------------------------------>|                                |
-       |                               | 7. Validate & consume state    |
-       |                               | 8. Server-to-server POST:      |
-       |                               |    Exchange code for tokens    |
-       |                               |------------------------------->|
-       |                               |                                |
-       |                               | 9. Receive tokens & profile    |
-       |                               |<-------------------------------|
-       |                               | 10. Encrypt tokens (AES-256)   |
-       | 11. Redirect /dashboard       |     and save store records     |
-       |     (?linked=1)               |                                |
-       |<------------------------------|                                |`}
+              {/* OAuth Protocol Visual Flow */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                <div className="p-4 bg-ink-50/70 border border-ink-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-ink-900 text-white flex items-center justify-center text-xs font-bold shrink-0">1</span>
+                    <h3 className="font-bold text-ink-950 text-sm">Initiate Connection</h3>
+                  </div>
+                  <p className="text-xs text-ink-600 leading-relaxed">
+                    User clicks <strong>"Link Store"</strong>. The backend signs the request with partner credentials and attaches an ephemeral 64-character CSRF state token before redirecting to the marketplace.
+                  </p>
+                  <div className="text-[11px] text-ink-500 font-mono bg-white border border-ink-200/80 rounded px-2 py-1">
+                    Browser → Marketplace Auth URL
+                  </div>
+                </div>
+
+                <div className="p-4 bg-ink-50/70 border border-ink-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-ink-900 text-white flex items-center justify-center text-xs font-bold shrink-0">2</span>
+                    <h3 className="font-bold text-ink-950 text-sm">Seller Authorization</h3>
+                  </div>
+                  <p className="text-xs text-ink-600 leading-relaxed">
+                    Seller logs into their Shopee or Lazada console and grants permission. The platform immediately redirects back to the MyStores callback route with a temporary single-use code.
+                  </p>
+                  <div className="text-[11px] text-ink-500 font-mono bg-white border border-ink-200/80 rounded px-2 py-1">
+                    Marketplace → Callback URL (?code=...)
+                  </div>
+                </div>
+
+                <div className="p-4 bg-ink-50/70 border border-ink-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-ink-900 text-white flex items-center justify-center text-xs font-bold shrink-0">3</span>
+                    <h3 className="font-bold text-ink-950 text-sm">Automated Token Exchange</h3>
+                  </div>
+                  <p className="text-xs text-ink-600 leading-relaxed">
+                    MyStores validates & consumes the CSRF state, performs a secure server-to-server POST to exchange the code for tokens, encrypts credentials (AES-256), and finishes linking.
+                  </p>
+                  <div className="text-[11px] text-ink-500 font-mono bg-white border border-ink-200/80 rounded px-2 py-1">
+                    Backend ↔ API → /dashboard (?linked=1)
+                  </div>
+                </div>
               </div>
             </section>
 
