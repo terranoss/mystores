@@ -98,11 +98,13 @@ export default function Settings() {
     partnerId: '',
     partnerKey: '',
     pushPartnerKey: '',
+    redirectUrl: '',
     hasCredentials: false,
   });
   const [lazadaCredentials, setLazadaCredentials] = useState({
     appKey: '',
     appSecret: '',
+    redirectUrl: '',
     hasCredentials: false,
   });
   const [shopeeLoading, setShopeeLoading] = useState(false);
@@ -129,12 +131,14 @@ export default function Settings() {
         partnerId: credentials?.partner_id || '',
         partnerKey: credentials?.partner_key ? '[SET]' : '',
         pushPartnerKey: credentials?.push_partner_key ? '[SET]' : '',
+        redirectUrl: credentials?.shopee_redirect_url || '',
         hasCredentials: !!credentials?.id,
       });
 
       setLazadaCredentials({
         appKey: credentials?.app_key || '',
         appSecret: credentials?.app_secret ? '[SET]' : '',
+        redirectUrl: credentials?.lazada_redirect_url || '',
         hasCredentials: !!credentials?.id,
       });
     } catch (error) {
@@ -157,11 +161,13 @@ export default function Settings() {
       const partnerId = formData.get('partnerId')?.toString().trim();
       const partnerKey = formData.get('partnerKey')?.toString().trim();
       const pushPartnerKey = formData.get('pushPartnerKey')?.toString().trim();
+      const redirectUrl = formData.get('shopeeRedirectUrl')?.toString().trim();
 
       await updateWorkspaceCredentials({
         partner_id: partnerId || undefined,
         partner_key: partnerKey || undefined,
         push_partner_key: pushPartnerKey || undefined,
+        shopee_redirect_url: redirectUrl || undefined,
       });
 
       showToast('Shopee credentials updated successfully', 'success');
@@ -181,10 +187,12 @@ export default function Settings() {
       const formData = new FormData(e.currentTarget);
       const appKey = formData.get('appKey')?.toString().trim();
       const appSecret = formData.get('appSecret')?.toString().trim();
+      const redirectUrl = formData.get('lazadaRedirectUrl')?.toString().trim();
 
       await updateWorkspaceCredentials({
         app_key: appKey || undefined,
         app_secret: appSecret || undefined,
+        lazada_redirect_url: redirectUrl || undefined,
       });
 
       showToast('Lazada credentials updated successfully', 'success');
@@ -405,6 +413,24 @@ export default function Settings() {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-ink-700 uppercase tracking-wider mb-1.5">
+                  Redirect URL
+                </label>
+                <input
+                  type="url"
+                  name="shopeeRedirectUrl"
+                  value={shopeeCredentials.redirectUrl}
+                  onChange={(e) => setShopeeCredentials((prev) => ({ ...prev, redirectUrl: e.target.value }))}
+                  placeholder="https://your-domain.com/api/shopee/callback"
+                  className="w-full max-w-md px-3 py-2 border border-ink-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-clay-500"
+                  disabled={shopeeLoading}
+                />
+                <p className="text-xs text-ink-500 mt-1 max-w-md">
+                  Must exactly match the <strong>Redirect URL Domain</strong> registered in your Shopee Open Platform Console. Default endpoint is <code className="bg-ink-100 px-1 py-0.5 rounded text-xs">/api/shopee/callback</code>.
+                </p>
+              </div>
+
               <div className="flex items-center gap-3 pt-2">
                 <button
                   type="submit"
@@ -470,6 +496,24 @@ export default function Settings() {
                   className="w-full max-w-md px-3 py-2 border border-ink-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-clay-500"
                   disabled={lazadaLoading}
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-ink-700 uppercase tracking-wider mb-1.5">
+                  Redirect URL
+                </label>
+                <input
+                  type="url"
+                  name="lazadaRedirectUrl"
+                  value={lazadaCredentials.redirectUrl}
+                  onChange={(e) => setLazadaCredentials((prev) => ({ ...prev, redirectUrl: e.target.value }))}
+                  placeholder="https://your-domain.com/api/lazada/callback"
+                  className="w-full max-w-md px-3 py-2 border border-ink-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-clay-500"
+                  disabled={lazadaLoading}
+                />
+                <p className="text-xs text-ink-500 mt-1 max-w-md">
+                  Must match the Callback URL registered in your Lazada Open Platform Console. Default endpoint is <code className="bg-ink-100 px-1 py-0.5 rounded text-xs">/api/lazada/callback</code>.
+                </p>
               </div>
 
               <div className="flex items-center gap-3 pt-2">
