@@ -254,6 +254,9 @@ def main():
             print(f"[-] Command failed: {cmd}")
             sys.exit(1)
 
+    # Ensure remote production site is marked as installed
+    run_remote_command(ssh, "test -f storage/installed || touch storage/installed", backend_path)
+
     print_step(7, "Configuring Entrypoint for cPanel")
     print("[*] Creating root .htaccess rewrite to backend/public/...")
     htaccess_content = """<IfModule mod_rewrite.c>

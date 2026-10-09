@@ -22,3 +22,7 @@ node_modules/
 # graphify
 graphify-out/
 
+# Release builds
+dist_release/
+release_artifacts/
+
