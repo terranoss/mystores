@@ -19,7 +19,6 @@ bool _isAuthEndpoint(String path) {
 Dio createDio() {
   final dio = Dio(
     BaseOptions(
-      baseUrl: ServerStorage.defaultBaseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
       headers: {

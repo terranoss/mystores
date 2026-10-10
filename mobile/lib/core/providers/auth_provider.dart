@@ -5,6 +5,7 @@ import '../api/api_client.dart';
 import '../api/api_endpoints.dart';
 import '../api/api_log.dart';
 import '../auth/auth_storage.dart';
+import '../auth/server_storage.dart';
 import '../models/dashboard.dart';
 import '../widgets/home_screen_widget.dart';
 
@@ -12,6 +13,9 @@ class AuthState {
   final AppUser? user;
   final bool isLoading;
   final bool isInitializing;
+  final bool hasConfiguredStore;
+  final String? storeName;
+  final String? storeUrl;
   final String? error;
   final String? errorDetail;
 
@@ -19,6 +23,9 @@ class AuthState {
     this.user,
     this.isLoading = false,
     this.isInitializing = true,
+    this.hasConfiguredStore = false,
+    this.storeName,
+    this.storeUrl,
     this.error,
     this.errorDetail,
   });
@@ -29,6 +36,9 @@ class AuthState {
     AppUser? user,
     bool? isLoading,
     bool? isInitializing,
+    bool? hasConfiguredStore,
+    String? storeName,
+    String? storeUrl,
     String? error,
     String? errorDetail,
     bool clearUser = false,
@@ -38,6 +48,9 @@ class AuthState {
       user: clearUser ? null : user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       isInitializing: isInitializing ?? this.isInitializing,
+      hasConfiguredStore: hasConfiguredStore ?? this.hasConfiguredStore,
+      storeName: storeName ?? this.storeName,
+      storeUrl: storeUrl ?? this.storeUrl,
       error: clearError ? null : error ?? this.error,
       errorDetail: clearError ? null : errorDetail ?? this.errorDetail,
     );
@@ -50,24 +63,55 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _restoreSession() async {
+    String? storeUrl;
+    String? storeName;
+    try {
+      storeUrl = await ServerStorage.getStoreUrl();
+      storeName = await ServerStorage.getStoreName();
+    } catch (_) {}
+
+    final hasStore = storeUrl != null && storeUrl.isNotEmpty;
+
     try {
       final token = await AuthStorage.getToken();
       final userJson = await AuthStorage.getUser();
       if (token != null && userJson != null) {
         final user =
             AppUser.fromJson(jsonDecode(userJson) as Map<String, dynamic>);
-        state = state.copyWith(user: user, isInitializing: false);
+        state = state.copyWith(
+          user: user,
+          isInitializing: false,
+          hasConfiguredStore: hasStore,
+          storeName: storeName,
+          storeUrl: storeUrl,
+        );
         return;
       }
     } catch (_) {
       await AuthStorage.clearAll();
     }
-    state = state.copyWith(isInitializing: false);
+    state = state.copyWith(
+      isInitializing: false,
+      hasConfiguredStore: hasStore,
+      storeName: storeName,
+      storeUrl: storeUrl,
+    );
+  }
+
+  Future<void> reloadStoreConfig() async {
+    final storeUrl = await ServerStorage.getStoreUrl();
+    final storeName = await ServerStorage.getStoreName();
+    state = state.copyWith(
+      hasConfiguredStore: storeUrl != null && storeUrl.isNotEmpty,
+      storeName: storeName,
+      storeUrl: storeUrl,
+    );
   }
 
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, clearError: true);
-    ApiLog.add('login attempt for $email at ${ApiEndpoints.baseUrl}');
+    final activeUrl = await ServerStorage.getStoreUrl() ?? 'unconnected';
+    ApiLog.add('login attempt for $email at $activeUrl');
     try {
       final res = await apiClient.post(
         ApiEndpoints.login,

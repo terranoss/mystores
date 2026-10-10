@@ -11,9 +11,6 @@ class ServerStorage {
   static const String _storeUrlKey = 'active_store_url';
   static const String _storeNameKey = 'active_store_name';
 
-  /// Default fallback URL when running in dev/legacy mode
-  static const String defaultBaseUrl = 'https://mystores.melur.com/api';
-
   /// Saves the validated store base URL (e.g. "https://store.domain.com/api")
   static Future<void> saveStore({
     required String url,

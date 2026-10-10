@@ -2,7 +2,7 @@
 class ApiEndpoints {
   ApiEndpoints._();
 
-  static const String baseUrl = 'https://mystores.melur.com/api';
+  static const String baseUrl = '';
 
   // Auth
   static const String login = '/login';

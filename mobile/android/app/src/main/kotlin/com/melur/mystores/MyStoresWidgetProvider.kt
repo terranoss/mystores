@@ -1,4 +1,4 @@
-package oom.mystores.shopee_manager
+package com.melur.mystores
 
 import android.appwidget.AppWidgetManager
 import android.content.Context

@@ -32,6 +32,15 @@ final _router = GoRouter(
     // Wait until secure storage reads user token on app start
     if (auth.isInitializing) return null;
 
+    // 1. If NO store is connected yet, MUST go to /connect-store
+    if (!auth.hasConfiguredStore) {
+      if (state.matchedLocation != '/connect-store') {
+        return '/connect-store';
+      }
+      return null;
+    }
+
+    // 2. If store is connected, standard auth guards apply
     final isAuthRoute = state.matchedLocation == '/login' ||
         state.matchedLocation == '/connect-store';
     if (!auth.isAuthenticated && !isAuthRoute) return '/login';

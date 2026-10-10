@@ -1,18 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/auth/server_storage.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../shared/theme/app_theme.dart';
 
-class StoreConnectScreen extends StatefulWidget {
+class StoreConnectScreen extends ConsumerStatefulWidget {
   const StoreConnectScreen({super.key});
 
   @override
-  State<StoreConnectScreen> createState() => _StoreConnectScreenState();
+  ConsumerState<StoreConnectScreen> createState() => _StoreConnectScreenState();
 }
 
-class _StoreConnectScreenState extends State<StoreConnectScreen> {
+class _StoreConnectScreenState extends ConsumerState<StoreConnectScreen> {
   final _urlController = TextEditingController();
   bool _isChecking = false;
   String? _errorMessage;
@@ -80,6 +82,7 @@ class _StoreConnectScreenState extends State<StoreConnectScreen> {
         final storeName = data['name']?.toString() ?? 'MyStore';
 
         await ServerStorage.saveStore(url: url, name: storeName);
+        await ref.read(authProvider.notifier).reloadStoreConfig();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

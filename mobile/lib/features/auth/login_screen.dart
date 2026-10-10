@@ -30,12 +30,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _loadStoreInfo() async {
-    final name = await ServerStorage.getStoreName();
     final url = await ServerStorage.getStoreUrl();
+    if (url == null || url.isEmpty) {
+      if (mounted) {
+        context.go('/connect-store');
+      }
+      return;
+    }
+    final name = await ServerStorage.getStoreName();
     if (mounted) {
       setState(() {
         _storeName = name;
-        _storeUrl = url?.replaceAll(RegExp(r'/api/?$'), '');
+        _storeUrl = url.replaceAll(RegExp(r'/api/?$'), '');
       });
     }
   }
