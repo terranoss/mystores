@@ -223,6 +223,44 @@ def main():
                         </li>
                     </ul>
                 </div>
+
+                {{-- Interactive Demo Preview --}}
+                <div class="rounded-xl border border-white/10 bg-[var(--sl-shelf)] p-5 sm:p-6 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                        <div>
+                            <h3 class="font-display text-lg text-[var(--sl-paper)] font-semibold">
+                                See it in action
+                            </h3>
+                            <p class="text-sm text-[var(--sl-muted)] mt-1 leading-relaxed max-w-2xl">
+                                Explore a fully interactive sample store. Every screen below is the real MyStore interface,
+                                loaded with fabricated sample data. Nothing here is connected to a live store, and no
+                                action you take in the demo affects anything.
+                            </p>
+                        </div>
+                        <a
+                            href="{{ url('/demo') }}/"
+                            target="_blank"
+                            rel="noopener"
+                            class="shrink-0 inline-flex items-center gap-2 rounded-md border border-white/20 px-4 py-2 text-sm font-semibold text-[var(--sl-paper)] hover:border-[var(--sl-copper)] hover:text-[var(--sl-copper-hot)] transition-colors"
+                        >
+                            Open full screen
+                        </a>
+                    </div>
+
+                    <div class="overflow-hidden rounded-xl border border-white/10 bg-[#f7f6f2]">
+                        <iframe
+                            src="{{ url('/demo') }}/"
+                            title="MyStore interactive demo — sample dashboard"
+                            loading="lazy"
+                            class="block w-full h-[720px] border-0"
+                        ></iframe>
+                    </div>
+
+                    <p class="text-xs text-[var(--sl-muted)] leading-relaxed">
+                        Sample dashboard shown. If the preview does not load,
+                        <a href="{{ url('/demo') }}/" target="_blank" rel="noopener" class="underline hover:text-[var(--sl-copper-hot)]">open the demo in a new tab</a>.
+                    </p>
+                </div>
             @endif
 
             @if ($product->isPinscoutFamily())
@@ -290,11 +328,19 @@ def main():
                     </a>
                 @endauth
 
-                @if ($product->code === 'mystores')
+@if ($product->code === 'mystores')
+                    <a
+                        href="{{ url('/demo') }}/"
+                        target="_blank"
+                        rel="noopener"
+                        class="rounded-md border border-white/20 bg-transparent px-4 py-2.5 text-center text-sm font-semibold text-[var(--sl-paper)] hover:border-[var(--sl-copper)] hover:text-[var(--sl-copper-hot)] transition-colors inline-flex items-center justify-center gap-2"
+                    >
+                        View Live Demo
+                    </a>
                     <a
                         href="https://play.google.com/store/apps/details?id=com.melur.mystores"
                         target="_blank"
-                        rel="noopener noreferrer"
+                        rel="noopener"
                         class="rounded-md border border-white/20 bg-transparent px-4 py-2.5 text-center text-sm font-semibold text-[var(--sl-paper)] hover:border-sky-400 hover:text-sky-300 transition-colors inline-flex items-center justify-center gap-2"
                     >
                         Download on Google Play
