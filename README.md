@@ -28,7 +28,7 @@ MyStores connects to your Shopee and Lazada stores via their open platform APIs,
 - **Promotions** — Normalized promotions dashboard supporting Shopee discounts and vouchers, plus Lazada seller vouchers (creation, activation/deactivation, and SKU assignment).
 - **Workspaces & team** — Multi-tenant team workspaces with member invites, role-scoped activity logging, in-app notifications with unread tracking, and owner-only marketplace credentials.
 - **Dashboard** — Live operational statistics, low-stock alert banners, pick-list counts, and store connection health monitoring.
-- **Mobile app (Flutter)** — Companion app covering dashboard, stock, orders, pick lists, notifications, and team, featuring PlantNet plant ID photo identification and an Android home-screen widget.
+- **Mobile app (Flutter)** — Companion app covering dashboard, stock, orders, pick lists, notifications, and team, plus an Android home-screen widget.
 - **Security & ops** — Laravel Sanctum token auth with expiration, HMAC webhook verification, strict multi-tenant workspace isolation, mutation rate limits, security headers, 9 scheduled background cron jobs, and 185 passing automated tests.
 
 Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA frontend, and a **Flutter** mobile app, deployed on cPanel hosting.
@@ -114,10 +114,9 @@ Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA 
 | flutter_secure_storage | Secure token storage |
 | go_router | Navigation |
 | fl_chart | Dashboard charts |
-| image_picker | Pick-list photo capture, plant identification photos |
+| image_picker | Pick-list photo capture |
 | infinite_scroll_pagination | Paginated lists |
 | home_widget | Android home-screen widget |
-| PlantNet API (external) | Plant identification (`my-api.plantnet.org/v2`), key via `--dart-define=PLANTNET_API_KEY` |
 
 ### Deploy (`deploy/`)
 | Tool | Purpose |
@@ -218,7 +217,6 @@ Built with a **Laravel 12** backend (REST API), a **React 19 + TypeScript** SPA 
 - Talks to the same Laravel API with a dedicated Dio client; token stored via `flutter_secure_storage`
 - Screens: login, dashboard (stats + fl_chart graphs), stock, orders, pick list, notifications, team
 - Android home-screen widget showing dashboard stats (`home_widget`)
-- Plant identification — capture a plant photo and identify it via the PlantNet API (`features/plant_id/`)
 - Riverpod providers for auth, stores, products, orders, dashboard, and notifications
 
 ### ⏰ Scheduled Tasks
@@ -423,7 +421,6 @@ mystores/
 │       │   ├── pick_list/pick_list_screen.dart
 │       │   ├── notifications/notifications_screen.dart
 │       │   ├── team/team_screen.dart
-│       │   └── plant_id/                           # PlantNet plant identification (screen, service, widgets)
 │       ├── core/
 │       │   ├── api/                               # Dio client, endpoints, error handling
 │       │   ├── models/                            # Store, product, order, dashboard, notification, workspace
@@ -501,7 +498,6 @@ The database consists of **18 application tables** (plus Laravel's `jobs`, `job_
 - Flutter 3.x with Dart >=3.4.0 (for the mobile app)
 - Shopee Partner ID & Key (from [open.shopee.com](https://open.shopee.com))
 - Lazada App Key & Secret (optional — for Lazada store linking)
-- PlantNet API key (optional — only for the mobile app's plant identification screen)
 
 ### 1. Clone & Install Backend
 
@@ -932,11 +928,7 @@ E2E tests cover the full stock editing flow: login → navigate to stock → edi
 
 > The former `ERP_*` keys (Melur POS/ERP connector) were removed along with the integration and are no longer read by the app.
 
-### Mobile build flags
-
-| Variable | Purpose |
-|---|---|
-| `PLANTNET_API_KEY` | PlantNet API key for the plant identification screen (`--dart-define=PLANTNET_API_KEY=...`); screen is inert when empty |
+> The former `PLANTNET_API_KEY` mobile build flag was removed along with the Plant ID feature.
 
 ### `config/cors.php`
 

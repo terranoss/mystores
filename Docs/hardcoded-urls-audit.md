@@ -87,10 +87,10 @@ A compile-time constant consumed by the single Dio instance at `api_client.dart:
 so this one line is the only thing pinning the app to production. There is no `--dart-define`, no
 `.env`, and no dev/staging variant — **a debug build cannot point at a local backend.**
 
-`grep` for `fromEnvironment` / `dotenv` across `lib/` returns exactly one hit, and it is the
-PlantNet key, not the base URL.
+`grep` for `fromEnvironment` / `dotenv` across `lib/` returns no hits — the app has no runtime
+configuration mechanism at all.
 
-**Fix:** follow the pattern already used at `plantnet_service.dart:29-30`.
+**Fix:** introduce an `API_BASE_URL` dart-define with the current URL as its `defaultValue`.
 
 ```dart
 static const String baseUrl = String.fromEnvironment(
@@ -152,7 +152,8 @@ and substitute obvious placeholders in the example.
 
 - `backend/.env:86` — `ERP_API_BASE_URL=https://pos.melur.com`. Migration
   `2026_10_04_000001_drop_pos_inventories_table.php:21` records that the integration was removed.
-- `mobile/README.md:35-38` claims the Plant ID screen is inert without a key. It isn't — see §4.2.
+- ~~`mobile/README.md:35-38` claims the Plant ID screen is inert without a key.~~ Resolved — the Plant ID
+  feature and its README section have been removed.
 
 ---
 
@@ -164,33 +165,27 @@ These are third-party endpoints or benign links. Listed so future audits don't r
 
 | Location | URL | Purpose |
 |---|---|---|
-| `mobile/.../plantnet_service.dart:18` | `https://my-api.plantnet.org/v2` | Pl@ntNet API base |
 | `frontend/index.html:8` | `https://fonts.googleapis.com` | preconnect |
 | `frontend/index.html:9` | `https://fonts.gstatic.com` | preconnect (crossorigin) |
 | `frontend/index.html:10` | `https://fonts.googleapis.com/css2?family=DM+Sans...&family=Poppins...` | Google Fonts |
-| `backend/.../LazadaService.php:22-28` | `https://api.lazada.{sg,com.my,co.th,com.ph,co.id,vn}/rest` | Regional API bases |
+| `backend/.../LazadaService.php:22-28` | `https://api.lazada.{sg,com.my,co.th,com.ph,com.id,vn}/rest` | Regional API bases |
 | `backend/.../LazadaService.php:191,213,259` | `https://auth.lazada.com/...` | Lazada OAuth authorize/token |
-| `mobile/.../plant_id_screen.dart:201` | `https://www.google.com/search?q=...` | Species search fallback |
-| `mobile/.../result_card.dart:21` | `https://www.google.com/search?q=...` | Same, from result card |
 
 Google Fonts is the **only** third-party runtime dependency in the frontend.
 
+> Previously listed here were the Pl@ntNet endpoints (`plantnet_service.dart:18`,
+> `plant_id_screen.dart:201`, `result_card.dart:21`). Those files were deleted along with the Plant ID
+> feature, so the entries no longer apply.
+
 ### 4.2 Committed third-party API key
 
-`mobile/lib/features/plant_id/services/plantnet_service.dart:22`
+**Resolved — no key is committed anywhere in the repo.** This finding concerned
+`mobile/lib/features/plant_id/services/plantnet_service.dart`, which shipped a borrowed PlantNet key
+(`2b10JOrURQieOwcU9sxG5YAe`) as a hardcoded fallback. The entire Plant ID feature was removed, taking
+the key with it.
 
-```dart
-// Copied from nurserytrack project credential
-static const String _defaultApiKey = '2b10JOrURQieOwcU9sxG5YAe';
-```
-
-The comment says this was copied from another project. It is overridable via
-`--dart-define=PLANTNET_API_KEY` (lines 29-30), but the hardcoded value is the **default**, so the
-shipped app authenticates against that borrowed key unless someone passes the flag. Worth moving to
-a required dart-define with no committed fallback.
-
-Note `README.md:35-38` states the screen is inert without a key — that is inaccurate; the default
-means it works out of the box on someone else's credential.
+If a similar third-party credential is ever reintroduced, do not commit it — read it from
+`String.fromEnvironment` with no `defaultValue`.
 
 ### 4.3 Safe localhost defaults
 
@@ -243,10 +238,10 @@ low-urgency item if you genuinely only ever deploy once.
 | 5 | Add sandbox hosts to Lazada map, or drop `LAZADA_SANDBOX` | `LazadaService.php:22-28` | Medium |
 | 6 | Strip or wire up reCAPTCHA; placeholder the example key | `frontend/.env*`, `backend/.env.example` | Medium |
 | 7 | Add `.env` to `frontend/.gitignore` | `frontend/.gitignore` | Low |
-| 8 | Move PlantNet key to required dart-define | `plantnet_service.dart:22` | Low |
+| 8 | ~~Move PlantNet key to required dart-define~~ — resolved, Plant ID feature deleted | `plantnet_service.dart` | ~~Low~~ Done |
 | 9 | Remove `ERP_API_BASE_URL` | `backend/.env:86` | Low |
 | 10 | Delete stock `welcome.blade.php` | `backend/resources/views/` | Low |
-| 11 | Fix stale README paths / inert-screen claim | `mobile/README.md` | Low |
+| 11 | ~~Fix stale README paths / inert-screen claim~~ — done; Plant ID docs removed | `mobile/README.md` | ~~Low~~ Done |
 
 ---
 
