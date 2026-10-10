@@ -14,6 +14,8 @@ import {
   type WorkspaceResponse,
 } from '../api/client';
 
+import { QRCodeSVG } from 'qrcode.react';
+
 export default function Team() {
   const { showToast } = useToast();
   const [data, setData] = useState<WorkspaceResponse | null>(null);
@@ -138,6 +140,51 @@ export default function Team() {
                   {data.workspace.role || 'unknown'}
                 </span>
               </p>
+            </div>
+
+            {/* Mobile App Companion Setup Card */}
+            <div className="bg-gradient-to-br from-ink-950 to-ink-900 rounded-2xl p-6 text-white shadow-lg space-y-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-clay-500/20 border border-clay-400/30 text-clay-300 text-xs font-medium mb-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-clay-400 animate-pulse" />
+                    Google Play Companion App
+                  </div>
+                  <h3 className="font-heading text-lg font-bold text-white">
+                    Connect Staff & Mobile Devices
+                  </h3>
+                  <p className="text-sm text-ink-300 max-w-lg mt-1">
+                    Staff members can download the official <strong>MyStore</strong> app from Google Play, scan this Store QR code to connect directly to this server, and log in with their email.
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-xl shadow-md shrink-0 flex flex-col items-center">
+                  <QRCodeSVG
+                    value={window.location.origin}
+                    size={110}
+                    level="M"
+                    includeMargin={false}
+                  />
+                  <span className="text-[10px] font-semibold text-ink-600 mt-1 uppercase tracking-wider">
+                    Scan Store QR
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-ink-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-ink-300">
+                <div className="flex items-center gap-2">
+                  <span className="text-ink-400">Store Domain:</span>
+                  <code className="px-2 py-0.5 rounded bg-ink-800 text-clay-300 font-mono text-xs">
+                    {window.location.origin}
+                  </code>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>1. Install MyStore on Play Store</span>
+                  <span>→</span>
+                  <span>2. Scan QR</span>
+                  <span>→</span>
+                  <span>3. Log in</span>
+                </div>
+              </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-ink-100 shadow-sm overflow-hidden">
