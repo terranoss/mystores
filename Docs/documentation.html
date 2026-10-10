@@ -337,11 +337,10 @@
       <li><a href="#web-license" class="nav-link">4. License Activation</a></li>
     </ul>
 
-    <div class="nav-group-title">Flutter Mobile App</div>
+    <div class="nav-group-title">Mobile Companion App</div>
     <ul class="nav-links">
-      <li><a href="#app-instant" class="nav-link">A. Instant APK Setup (QR)</a></li>
-      <li><a href="#app-custom" class="nav-link">B. Compile from Source</a></li>
-      <li><a href="#app-signing" class="nav-link">C. Release Keystore</a></li>
+      <li><a href="#app-google-play" class="nav-link">Google Play App Setup</a></li>
+      <li><a href="#app-connect-qr" class="nav-link">Connect via Store QR</a></li>
     </ul>
 
     <div class="nav-group-title">Help & Troubleshooting</div>
@@ -371,20 +370,16 @@
           </thead>
           <tbody>
             <tr>
-              <td><code>web/</code></td>
-              <td>Pre-compiled backend and frontend. Upload this directly to your hosting / cPanel.</td>
+              <td><code>Web_and_Backend/</code> (or <code>web/</code>)</td>
+              <td>Pre-compiled Laravel 12 backend + React 19 frontend assets. Upload this directly to your hosting / cPanel.</td>
             </tr>
             <tr>
-              <td><code>mobile/</code></td>
-              <td>Full Flutter companion mobile application source code.</td>
+              <td><code>Documentation/</code></td>
+              <td>Offline installation and user documentation guide.</td>
             </tr>
             <tr>
-              <td><code>MyStore-v1.0.0.apk</code></td>
-              <td>Pre-built Android APK ready for instant install on phones, tablets, or POS devices.</td>
-            </tr>
-            <tr>
-              <td><code>documentation.html</code></td>
-              <td>This offline documentation guide.</td>
+              <td><code>README.txt</code></td>
+              <td>Quick orientation file with 5-minute setup instructions and Google Play App link.</td>
             </tr>
           </tbody>
         </table>
@@ -453,58 +448,38 @@
     </div>
 
     <!-- Mobile Setup -->
-    <div id="app-instant">
-      <h2>Flutter Mobile App Setup</h2>
-      
-      <h3>Option A: Instant Setup (Zero-Compile with Pre-built APK)</h3>
-      <p>Non-technical buyers and store staff can start using the mobile app in under 60 seconds without installing Flutter or Android Studio:</p>
-
-      <ol style="color:#cbd5e1; margin-left: 24px; line-height: 1.9; font-size: 14.5px;">
-        <li>Send the included <code>MyStore-v1.0.0.apk</code> file to your Android phone, tablet, or handheld POS device.</li>
-        <li>Tap to install the APK (allow <em>"Install from unknown sources"</em> if prompted).</li>
-        <li>Launch the MyStore app.</li>
-        <li>On first launch, the app asks: <strong>"Connect to your MyStore"</strong>.</li>
-        <li>Type your domain: <code>https://your-store.com</code> (or scan the QR Code displayed on your web dashboard under <em>Settings &gt; Mobile App</em>).</li>
-        <li>Log in with your administrator or staff credentials.</li>
-      </ol>
-    </div>
-
-    <!-- Mobile Custom -->
-    <div id="app-custom">
-      <h3>Option B: Developer Customization (Compiling from Source)</h3>
-      <p>If you want to customize your branding, logo, or publish the app on your own Google Play Store account:</p>
+    <div id="app-google-play">
+      <h2>Mobile Companion App (Google Play)</h2>
+      <p>
+        The official <strong>MyStore Companion App</strong> is available for all Android phones, tablets, and handheld barcode / POS terminals directly via the <strong>Google Play Store</strong>.
+      </p>
 
       <div class="card">
-        <h4 style="margin-bottom: 8px;">1. Point Backend URL</h4>
-        <p style="font-size: 13.5px;">Open <code>mobile/lib/core/api/api_endpoints.dart</code> and update line 5:</p>
-        <pre><code>static const String baseUrl = 'https://your-domain.com/api';</code></pre>
-
-        <h4 style="margin-top: 18px; margin-bottom: 8px;">2. Change App Name</h4>
-        <p style="font-size: 13.5px;">Open <code>mobile/android/app/src/main/AndroidManifest.xml</code> and change the <code>android:label</code>:</p>
-        <pre><code>&lt;application android:label="Your Brand Name" ... &gt;</code></pre>
-
-        <h4 style="margin-top: 18px; margin-bottom: 8px;">3. Change Application ID / Package Name</h4>
-        <p style="font-size: 13.5px;">Open <code>mobile/android/app/build.gradle.kts</code> and change lines 18 and 33:</p>
-        <pre><code>applicationId = "com.yourcompany.mystores"</code></pre>
-
-        <h4 style="margin-top: 18px; margin-bottom: 8px;">4. Replace Launcher Icons</h4>
-        <p style="font-size: 13.5px;">Replace the <code>ic_launcher.png</code> files in <code>mobile/android/app/src/main/res/mipmap-*/</code> with your company logo.</p>
+        <h3 style="margin-top:0;">Download App from Google Play</h3>
+        <ul style="color:#cbd5e1; margin-left: 20px; line-height: 1.9; font-size: 14.5px;">
+          <li><strong>App Name:</strong> MyStores (by Melur)</li>
+          <li><strong>Application ID:</strong> <code>com.melur.mystores</code></li>
+          <li><strong>Play Store Search:</strong> Search <em>"MyStores Melur"</em> on Google Play Store or scan the badge QR displayed on your web admin dashboard.</li>
+        </ul>
       </div>
 
-      <div id="app-signing">
-        <h3>Release Compilation Commands</h3>
-        <p>In your terminal inside the <code>mobile/</code> directory, execute:</p>
-        <pre><code># 1. Fetch dependencies
-flutter pub get
+      <div id="app-connect-qr">
+        <h3>How Staff & Cashiers Connect (Zero-Configuration)</h3>
+        <p>Your team members never have to configure server URLs or edit code:</p>
 
-# 2. Build Release APK (for direct phone / POS terminal install)
-flutter build apk --release
+        <ol style="color:#cbd5e1; margin-left: 24px; line-height: 1.9; font-size: 14.5px;">
+          <li><strong>Admin Creates Member:</strong> In your web dashboard, navigate to <strong>Team &gt; Add Team Member</strong>. Enter the staff member's Name, Email, and Password.</li>
+          <li><strong>Staff Installs App:</strong> Have the staff download <strong>MyStores</strong> from the Google Play Store.</li>
+          <li><strong>Scan Store QR:</strong> On opening the app, staff taps <strong>"Scan Store QR Code"</strong> and scans the Store QR displayed on your admin <em>Team</em> page. (Or they can type your store domain: <code>https://your-domain.com</code>).</li>
+          <li><strong>Sign In:</strong> The app connects to your server instantly. Staff enters their email and password to access their orders, pick lists, and inventory!</li>
+        </ol>
 
-# 3. Build Google Play Store App Bundle (.aab)
-flutter build appbundle --release</code></pre>
-        <p style="font-size: 13.5px; color: #94a3b8;">
-          Your compiled APK will be generated at: <code>mobile/build/app/outputs/flutter-apk/app-release.apk</code>
-        </p>
+        <div class="callout callout-success">
+          <div>📱</div>
+          <div>
+            <strong>Multi-Store Staff Support:</strong> If a team member works across multiple stores or branches, they can simply tap <strong>"Change"</strong> on the sign-in screen or select <strong>"Switch Store"</strong> in the app navigation drawer to connect to another server anytime.
+          </div>
+        </div>
       </div>
     </div>
 
