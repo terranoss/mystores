@@ -90,27 +90,14 @@ class ReleaseEngine:
             "desc": frontend_desc
         })
 
-        # 3. Flutter Mobile App
-        mobile_dir = os.path.join(self.repo_root, "mobile")
-        pubspec = os.path.join(mobile_dir, "pubspec.yaml")
-        endpoints = os.path.join(mobile_dir, "lib", "core", "api", "api_endpoints.dart")
-        mobile_ok = os.path.isdir(mobile_dir) and os.path.isfile(pubspec) and os.path.isfile(endpoints)
-        results.append({
-            "key": "mobile",
-            "title": "Flutter Mobile App Codebase",
-            "status": "PASS" if mobile_ok else "FAIL",
-            "desc": "Flutter companion project, pubspec.yaml, and configurable api_endpoints.dart verified."
-            if mobile_ok else "mobile/ source code or api_endpoints.dart missing."
-        })
-
-        # 4. Buyer Documentation
+        # 3. Buyer Documentation
         doc_path = os.path.join(self.repo_root, "Docs", "documentation.html")
         doc_ok = os.path.isfile(doc_path) and os.path.getsize(doc_path) > 5000
         results.append({
             "key": "docs",
             "title": "Buyer HTML Documentation",
             "status": "PASS" if doc_ok else "FAIL",
-            "desc": "Comprehensive standalone documentation.html (Web setup + Flutter compile guide) ready."
+            "desc": "Comprehensive standalone documentation.html (Web setup & Google Play Companion guide) ready."
             if doc_ok else "Docs/documentation.html not found or incomplete."
         })
 
@@ -268,43 +255,12 @@ class ReleaseEngine:
         self.log(f"  [OK] Packaged Web & Backend codebase ({copied_backend_files} files sanitized).")
 
         # -------------------------------------------------------------
-        # STEP 4: Package Flutter Mobile Codebase
+        # STEP 4: Create Quick-Start README.txt
         # -------------------------------------------------------------
-        self.log("\n[4/6] Packaging Flutter Mobile App Codebase...")
-        mobile_src = os.path.join(self.repo_root, "mobile")
-        mobile_dest = os.path.join(staging_dir, "Flutter_Mobile_App")
-        os.makedirs(mobile_dest, exist_ok=True)
-
-        exclude_mobile_dirs = {
-            ".dart_tool", "build", ".idea", ".gradle", "ios/Pods",
-            "ios/.symlinks", ".vscode"
-        }
-        exclude_mobile_files = {
-            "local.properties", "shopee_manager.iml", ".DS_Store"
-        }
-
-        copied_mobile_files = 0
-        for root, dirs, files in os.walk(mobile_src):
-            dirs[:] = [d for d in dirs if d not in exclude_mobile_dirs]
-            rel_dir = os.path.relpath(root, mobile_src)
-            target_dir = os.path.join(mobile_dest, rel_dir) if rel_dir != "." else mobile_dest
-            os.makedirs(target_dir, exist_ok=True)
-
-            for f in files:
-                if f in exclude_mobile_files or f.endswith(".iml"):
-                    continue
-                shutil.copy2(os.path.join(root, f), os.path.join(target_dir, f))
-                copied_mobile_files += 1
-
-        self.log(f"  [OK] Packaged Flutter codebase ({copied_mobile_files} files sanitized).")
-
-        # -------------------------------------------------------------
-        # STEP 5: Create Quick-Start README.txt
-        # -------------------------------------------------------------
-        self.log("\n[5/6] Generating README.txt...")
+        self.log("\n[4/5] Generating README.txt...")
         readme_content = f"""======================================================================
  {PRODUCT_NAME} - Multi-Store E-Commerce & POS Management Application
- Full Source Code Package (Web Platform + Mobile App)
+ Web Platform Package (Laravel 12 + React 19)
  Version: {version}
 ======================================================================
 
@@ -314,8 +270,8 @@ PACKAGE DIRECTORY STRUCTURE:
 ----------------------------
 1. Documentation/
    Open 'Documentation/index.html' in any web browser for complete,
-   step-by-step instructions for installing the web backend, running
-   the web setup wizard, and compiling the Flutter mobile app.
+   step-by-step instructions for installing the web platform, running
+   the setup wizard, and connecting the Google Play companion app.
 
 2. Web_and_Backend/
    Contains the complete Laravel 12 backend codebase.
@@ -325,12 +281,14 @@ PACKAGE DIRECTORY STRUCTURE:
    - For Developers: The full React 19 source code is included in
      'frontend_source/' for UI customization.
 
-3. Flutter_Mobile_App/
-   Contains the complete Flutter companion app source code.
-   - Open this folder in VS Code or Android Studio.
-   - Point your API URL in: 'lib/core/api/api_endpoints.dart'.
-   - Compile for Android: 'flutter build apk --release'
-   - Compile for Play Store: 'flutter build appbundle --release'
+COMPANION MOBILE APP:
+---------------------
+The official MyStore companion mobile app is available on Google Play Store.
+- App Name: MyStores (by Melur)
+- Application ID: com.melur.mystores
+- Staff & Cashiers can install directly from Google Play, scan the Store QR
+  code located in your web admin (Team > Mobile App), and log in instantly.
+  No compiling or developer accounts required!
 
 QUICK START (5 MINUTES):
 ------------------------
@@ -352,9 +310,9 @@ purchased order page.
         self.log("  [OK] Generated README.txt.")
 
         # -------------------------------------------------------------
-        # STEP 6: Zip Archive Creation
+        # STEP 5: Zip Archive Creation
         # -------------------------------------------------------------
-        self.log("\n[6/6] Compressing final distribution ZIP...")
+        self.log("\n[5/5] Compressing final distribution ZIP...")
         if os.path.exists(final_zip_path):
             os.remove(final_zip_path)
 
