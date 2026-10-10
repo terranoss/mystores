@@ -3,6 +3,8 @@ import '../auth/auth_storage.dart';
 import 'api_endpoints.dart';
 import 'api_log.dart';
 
+import '../auth/server_storage.dart';
+
 /// Called once when a protected request returns 401. Must clear local session only
 /// (no network) — see AuthNotifier.forceLocalLogout.
 void Function()? onUnauthorized;
@@ -17,7 +19,7 @@ bool _isAuthEndpoint(String path) {
 Dio createDio() {
   final dio = Dio(
     BaseOptions(
-      baseUrl: ApiEndpoints.baseUrl,
+      baseUrl: ServerStorage.defaultBaseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
       headers: {
@@ -27,10 +29,16 @@ Dio createDio() {
     ),
   );
 
-  // 1. Auth interceptor — attach Bearer token + request logging
+  // 1. Auth & Dynamic Host interceptor — attach Bearer token + dynamic store base URL
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
+        // Resolve dynamic base URL if configured
+        final customUrl = await ServerStorage.getStoreUrl();
+        if (customUrl != null && customUrl.isNotEmpty) {
+          options.baseUrl = customUrl;
+        }
+
         final token = await AuthStorage.getToken();
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
