@@ -30,6 +30,9 @@ dependencies:
   # Camera for picklist photo capture
   image_picker: ^1.1.2
 
+  # QR Code Scanner for dynamic store connection
+  mobile_scanner: ^6.0.4
+
   # Infinite scroll / pagination
   infinite_scroll_pagination: ^4.0.0
 

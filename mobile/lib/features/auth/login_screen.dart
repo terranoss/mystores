@@ -6,6 +6,8 @@ import '../../core/api/api_log.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../shared/theme/app_theme.dart';
 
+import '../../core/auth/server_storage.dart';
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -18,6 +20,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  String? _storeName;
+  String? _storeUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStoreInfo();
+  }
+
+  Future<void> _loadStoreInfo() async {
+    final name = await ServerStorage.getStoreName();
+    final url = await ServerStorage.getStoreUrl();
+    if (mounted) {
+      setState(() {
+        _storeName = name;
+        _storeUrl = url?.replaceAll(RegExp(r'/api/?$'), '');
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -106,7 +127,66 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 36),
+
+                  // Store connection badge & Switch Store button
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.storefront_rounded,
+                            size: 20, color: AppColors.primaryDark),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _storeName ?? 'MyStore',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                _storeUrl ?? 'Default Server',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => context.push('/connect-store'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Change',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                   Text('Sign in',
                       style: Theme.of(context).textTheme.headlineMedium),

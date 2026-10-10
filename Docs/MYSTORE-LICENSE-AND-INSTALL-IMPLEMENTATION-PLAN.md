@@ -28,11 +28,11 @@ When a buyer purchases MyStore on Stacklane, they receive a single zip archive (
 ```
 mystores-v1.0.0/
 ├── web/                     # Pre-bundled Laravel 12 + compiled React 19 (Upload to cPanel)
-├── mobile/                  # Full Flutter mobile app source code
-├── MyStore-v1.0.0.apk       # Pre-compiled Android APK (Zero build required for non-developers)
 ├── documentation.html       # Comprehensive, standalone interactive HTML setup guide
-└── README.txt               # Quick orientation file
+└── README.txt               # Quick orientation file (links to web installer & Google Play app)
 ```
+
+*(The Flutter mobile companion app is published as a universal app on Google Play Store; buyers and staff install directly from Google Play without compiling or sideloading).*
 
 ---
 

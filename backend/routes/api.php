@@ -25,6 +25,10 @@ Route::prefix('install')->group(function () {
 });
 
 // Public routes
+// Public discovery & ping endpoint for mobile companion app
+Route::get('/store-info', [\App\Http\Controllers\Api\StoreInfoController::class, 'show']);
+Route::get('/ping', [\App\Http\Controllers\Api\StoreInfoController::class, 'show']);
+
 // Registration is disabled — new accounts are created via artisan tinker or direct DB insert
 // Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');

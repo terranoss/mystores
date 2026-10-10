@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'core/api/api_client.dart';
 import 'core/providers/auth_provider.dart';
 import 'features/auth/login_screen.dart';
+import 'features/auth/store_connect_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/orders/orders_screen.dart';
 import 'features/notifications/notifications_screen.dart';
@@ -31,9 +32,10 @@ final _router = GoRouter(
     // Wait until secure storage reads user token on app start
     if (auth.isInitializing) return null;
 
-    final isLoggingIn = state.matchedLocation == '/login';
-    if (!auth.isAuthenticated && !isLoggingIn) return '/login';
-    if (auth.isAuthenticated && isLoggingIn) return '/dashboard';
+    final isAuthRoute = state.matchedLocation == '/login' ||
+        state.matchedLocation == '/connect-store';
+    if (!auth.isAuthenticated && !isAuthRoute) return '/login';
+    if (auth.isAuthenticated && isAuthRoute) return '/dashboard';
     return null;
   },
   routes: [
@@ -44,6 +46,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/login',
       builder: (_, __) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/connect-store',
+      builder: (_, __) => const StoreConnectScreen(),
     ),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
@@ -241,6 +247,21 @@ class _AppDrawer extends StatelessWidget {
               ],
             ),
             const Spacer(),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.sync_alt_rounded, color: AppColors.primaryDark),
+              title: const Text('Switch Store'),
+              subtitle: const Text('Connect to another server'),
+              onTap: () async {
+                Navigator.of(context).pop();
+                // Logout local session if any and open connect screen
+                final container = ProviderScope.containerOf(context);
+                await container.read(authProvider.notifier).logout();
+                if (context.mounted) {
+                  GoRouter.of(context).push('/connect-store');
+                }
+              },
+            ),
             const Divider(height: 1),
             const _DrawerAppVersion(),
           ],
