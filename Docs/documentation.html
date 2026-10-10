@@ -334,7 +334,7 @@
       <li><a href="#web-database" class="nav-link">1. Database Creation</a></li>
       <li><a href="#web-upload" class="nav-link">2. Uploading Files</a></li>
       <li><a href="#web-wizard" class="nav-link">3. Web Setup Wizard</a></li>
-      <li><a href="#web-license" class="nav-link">4. License Activation</a></li>
+      <li><a href="#web-cron" class="nav-link">4. Background Cron Job</a></li>
     </ul>
 
     <div class="nav-group-title">Mobile Companion App</div>
@@ -444,6 +444,52 @@
           <li><span class="step-badge">4</span> <strong>Admin & Store Setup:</strong> Personalize your Store Name and choose your primary Superadmin Name, Email, and Password.</li>
           <li><span class="step-badge">5</span> <strong>Initialization & Lockout:</strong> MyStore runs migrations, seeds initial data, saves your license certificate, and permanently locks the <code>/install</code> routes.</li>
         </ul>
+      </div>
+    <!-- Web Background Cron Job -->
+    <div id="web-cron">
+      <h2>4. Setting Up the Background Cron Job (cPanel &amp; VPS)</h2>
+      <p>
+        To automate marketplace synchronizations and maintain live token sessions, configure a single Laravel scheduler cron job on your server.
+      </p>
+
+      <div class="card">
+        <h3 style="margin-top:0;">Why is this Cron Job needed?</h3>
+        <ul style="color:#cbd5e1; margin-left: 20px; line-height: 1.9; font-size: 14px;">
+          <li><strong>Shopee &amp; Lazada Order Sync:</strong> Pulls new marketplace orders into your store automatically every 15 minutes.</li>
+          <li><strong>OAuth Token Renewal:</strong> Proactively refreshes Shopee and Lazada access tokens in the background so your stores remain connected.</li>
+          <li><strong>Stock &amp; Product Updates:</strong> Periodically synchronizes stock changes to prevent overselling.</li>
+          <li><strong>Compliance &amp; Data Hygiene:</strong> Automatically purges customer PII older than 90 days per marketplace developer requirements and cleans up old pick-list photos.</li>
+        </ul>
+      </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <h3 style="margin-top:0;">A. Setup in cPanel</h3>
+        <ol style="color:#cbd5e1; margin-left: 24px; line-height: 1.9; font-size: 14.5px;">
+          <li>Log into your <strong>cPanel</strong> dashboard.</li>
+          <li>In the search box, type <strong>Cron Jobs</strong> and click on it.</li>
+          <li>Under <em>Add New Cron Job</em>, set <strong>Common Settings</strong> to <em>Once Per Minute</em> (<code>* * * * *</code>).</li>
+          <li>In the <strong>Command</strong> field, enter:
+            <pre style="margin-top: 8px;"><code>/usr/local/bin/php /home/your_cpanel_user/public_html/artisan schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</code></pre>
+            <p style="font-size: 12.5px; color: #94a3b8; margin-top: 4px;"><em>(Replace <code>/home/your_cpanel_user/public_html</code> with your actual site directory path shown at the top of your cPanel File Manager).</em></p>
+          </li>
+          <li>Click <strong>Add New Cron Job</strong>.</li>
+        </ol>
+      </div>
+
+      <div class="card" style="margin-top: 16px;">
+        <h3 style="margin-top:0;">B. Setup on VPS (Ubuntu / Debian / AlmaLinux)</h3>
+        <p>If you are managing your own Linux server or VPS via SSH, open your user's crontab:</p>
+        <pre><code>crontab -e</code></pre>
+        <p style="margin-top: 8px;">Add this single line at the bottom of the file:</p>
+        <pre><code>* * * * * cd /var/www/mystore &amp;&amp; php artisan schedule:run &gt;&gt; /dev/null 2&gt;&amp;1</code></pre>
+        <p style="font-size: 12.5px; color: #94a3b8; margin-top: 4px;"><em>(Replace <code>/var/www/mystore</code> with the full path to your MyStore directory).</em></p>
+      </div>
+
+      <div class="callout callout-info" style="margin-top: 16px;">
+        <div>💡</div>
+        <div>
+          <strong>Note on Licensing:</strong> This cron job is purely for automated e-commerce &amp; marketplace syncing. The MyStore software license does <strong>NOT</strong> require a cron job to stay active; verification is performed once at installation.
+        </div>
       </div>
     </div>
 

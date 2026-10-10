@@ -299,6 +299,9 @@ QUICK START (5 MINUTES):
    https://your-domain.com/install
 4. Follow the 5-step installer wizard and enter your Stacklane License Key.
 5. Your store and dashboard are live!
+6. (Recommended) Add a 1-minute Cron Job in cPanel / server:
+   * * * * * cd /path-to-mystore && php artisan schedule:run >> /dev/null 2>&1
+   (This runs automated Shopee & Lazada order sync and token refresh).
 
 SUPPORT & LICENSING:
 --------------------
