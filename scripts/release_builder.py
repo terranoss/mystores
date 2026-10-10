@@ -286,6 +286,7 @@ COMPANION MOBILE APP:
 The official MyStore companion mobile app is available on Google Play Store.
 - App Name: MyStores (by Melur)
 - Application ID: com.melur.mystores
+- Google Play Link: https://play.google.com/store/apps/details?id=com.melur.mystores
 - Staff & Cashiers can install directly from Google Play, scan the Store QR
   code located in your web admin (Team > Mobile App), and log in instantly.
   No compiling or developer accounts required!
@@ -668,6 +669,21 @@ def main():
             sys.stdout.reconfigure(encoding="utf-8")
         except Exception:
             pass
+
+    # Support headless build via CLI flag --build
+    if len(sys.argv) > 1 and sys.argv[1] in ("--build", "-b"):
+        engine = ReleaseEngine(repo_root=REPO_ROOT, log_callback=lambda msg: print(msg))
+        print("Running headless build of release package...")
+        res = engine.build_package(
+            version="1.0.0",
+            build_frontend=False
+        )
+        if res.get("success"):
+            print(f"\n[OK] Release ZIP generated successfully at: {res.get('path')}")
+            sys.exit(0)
+        else:
+            print(f"\n[FAIL] Packaging failed: {res.get('error')}")
+            sys.exit(1)
 
     # Support headless check via CLI flag --check
     if len(sys.argv) > 1 and sys.argv[1] in ("--check", "-c"):
