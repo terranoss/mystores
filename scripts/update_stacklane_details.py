@@ -29,8 +29,7 @@ def main():
     ssh.connect(HOST, port=PORT, username=USER, pkey=key, timeout=20)
     print("  [OK] Connected successfully.")
 
-    # 1. Update resources/views/storefront/product.blade.php
-    print("\n[2] Deploying enhanced product.blade.php with high-converting sections for MyStore...")
+    print("\n[2] Uploading clean, professional product.blade.php (NO EMOJIS, MANDATORY PREREQUISITES)...")
     view_path = "resources/views/storefront/product.blade.php"
     
     new_blade = """@extends('layouts.storefront')
@@ -60,7 +59,7 @@ def main():
                     <div class="flex items-center gap-2">
                         <svg class="h-4 w-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                         @if ($product->code === 'mystores')
-                            <span><strong>Self-Hosted:</strong> Complete data ownership</span>
+                            <span><strong>Self-Hosted:</strong> Complete server and data ownership</span>
                         @else
                             <span><strong>Full desktop app:</strong> Runs locally on your PC</span>
                         @endif
@@ -68,7 +67,7 @@ def main():
                     <div class="flex items-center gap-2">
                         <svg class="h-4 w-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                         @if ($product->code === 'mystores')
-                            <span><strong>Install Activation:</strong> No recurring cron checks</span>
+                            <span><strong>Install Activation:</strong> No recurring phone-home checks</span>
                         @else
                             <span><strong>Offline grace:</strong> Works even without internet</span>
                         @endif
@@ -82,16 +81,67 @@ def main():
             </div>
 
             @if ($product->code === 'mystores')
+                {{-- Mandatory Prerequisites Block --}}
+                <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 sm:p-6 space-y-4">
+                    <div class="border-b border-amber-500/20 pb-3">
+                        <h3 class="font-display text-lg text-amber-300 font-bold uppercase tracking-wide">
+                            Mandatory Prerequisites Before Purchasing
+                        </h3>
+                        <p class="text-xs text-[var(--sl-muted)] mt-1">
+                            Please ensure you meet the following requirements before placing your order.
+                        </p>
+                    </div>
+
+                    <ul class="space-y-3 text-sm text-[var(--sl-paper)]/90">
+                        <li class="flex items-start gap-3">
+                            <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mt-2 shrink-0"></span>
+                            <div>
+                                <strong class="text-white">Shopee and/or Lazada Open Platform Developer Account (Required):</strong>
+                                <p class="text-xs text-[var(--sl-muted)] mt-0.5 leading-relaxed">
+                                    You must have an approved developer or partner app account on Shopee Open Platform and/or Lazada Open Platform. This provides the Partner ID, Partner Key, App Key, and App Secret required to authorize and sync your marketplace stores.
+                                </p>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mt-2 shrink-0"></span>
+                            <div>
+                                <strong class="text-white">Web Hosting with Domain &amp; HTTPS (Required):</strong>
+                                <p class="text-xs text-[var(--sl-muted)] mt-0.5 leading-relaxed">
+                                    Standard cPanel, VPS, or cloud hosting running PHP 8.2+ with MySQL/MariaDB. A valid SSL certificate (HTTPS) is required for marketplace webhooks and staff QR code connection.
+                                </p>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mt-2 shrink-0"></span>
+                            <div>
+                                <strong class="text-white">Android Mobile Devices for Staff:</strong>
+                                <p class="text-xs text-[var(--sl-muted)] mt-0.5 leading-relaxed">
+                                    Staff members and warehouse pickers require Android smartphones, tablets, or smart POS terminals with Google Play Store access to install the companion app.
+                                </p>
+                            </div>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mt-2 shrink-0"></span>
+                            <div>
+                                <strong class="text-white">No Programming or Build Tools Required:</strong>
+                                <p class="text-xs text-[var(--sl-muted)] mt-0.5 leading-relaxed">
+                                    The software comes pre-compiled and sanitized. No Node.js, npm, or Composer dependencies are required on your hosting. Setup is completed via a web wizard.
+                                </p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
                 {{-- Official Mobile App Banner with prominent Google Play button --}}
                 <div class="rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-950/40 to-slate-900/60 p-5 sm:p-6 shadow-lg">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div class="space-y-1.5">
                             <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                                📱 Mobile Companion Included
+                                Mobile Companion Included
                             </span>
                             <h3 class="font-display text-xl text-white font-bold">Official MyStores Mobile App</h3>
                             <p class="text-sm text-slate-300 max-w-md leading-relaxed">
-                                Give your warehouse staff, cashiers, and store managers full mobile access. Download free from Google Play and connect directly to your server by scanning your store's QR code.
+                                Warehouse staff, cashiers, and store managers can download the companion app free from Google Play and connect directly to your server by scanning the Store QR code.
                             </p>
                         </div>
                         <div class="shrink-0">
@@ -120,32 +170,32 @@ def main():
                 <div class="space-y-4 pt-2">
                     <h2 class="font-display text-2xl text-[var(--sl-paper)]">What is Open Platform &amp; Why Does It Matter?</h2>
                     <p class="text-sm text-[var(--sl-paper)]/85 leading-relaxed">
-                        An <strong>Open Platform</strong> is the official developer and enterprise API ecosystem provided by leading marketplaces like <strong>Shopee Open Platform</strong> and <strong>Lazada Open Platform</strong>. Instead of manually copying orders or dealing with fragile unofficial browser scrapers that break constantly, MyStore connects through direct, authorized API channels with official app credentials.
+                        An <strong>Open Platform</strong> is the official developer and enterprise API infrastructure provided by marketplaces like <strong>Shopee Open Platform</strong> and <strong>Lazada Open Platform</strong>. Instead of relying on fragile third-party scrapers that break during platform updates, MyStore connects through direct, authorized API channels using your official developer credentials.
                     </p>
 
                     <div class="grid gap-4 sm:grid-cols-2 pt-2">
                         <div class="border border-white/10 bg-[var(--sl-shelf)] p-4 rounded-lg space-y-1.5">
-                            <h4 class="font-medium text-amber-400 text-sm">⚡ Automated Real-Time Sync</h4>
+                            <h4 class="font-medium text-amber-400 text-sm">Automated Real-Time Sync</h4>
                             <p class="text-xs text-[var(--sl-muted)] leading-relaxed">
                                 Orders, inventory levels, and customer tracking numbers synchronize automatically without manual double-entry.
                             </p>
                         </div>
                         <div class="border border-white/10 bg-[var(--sl-shelf)] p-4 rounded-lg space-y-1.5">
-                            <h4 class="font-medium text-amber-400 text-sm">📄 Instant AWB Airway Bills</h4>
+                            <h4 class="font-medium text-amber-400 text-sm">Instant AWB Airway Bills</h4>
                             <p class="text-xs text-[var(--sl-muted)] leading-relaxed">
-                                Generate and batch-print thermal shipping labels (J&amp;T, PosLaju, SPX, NinjaVan) directly from your warehouse dashboard in seconds.
+                                Generate and batch-print thermal shipping labels (SPX, J&amp;T, PosLaju, NinjaVan) directly from your fulfillment screen.
                             </p>
                         </div>
                         <div class="border border-white/10 bg-[var(--sl-shelf)] p-4 rounded-lg space-y-1.5">
-                            <h4 class="font-medium text-amber-400 text-sm">🏖️ Vacation Mode &amp; Stock Guard</h4>
+                            <h4 class="font-medium text-amber-400 text-sm">Vacation Mode &amp; Stock Guard</h4>
                             <p class="text-xs text-[var(--sl-muted)] leading-relaxed">
                                 Toggle vacation mode directly via Shopee Open Platform API, and synchronize inventory buffers across Shopee and Lazada to prevent overselling while away.
                             </p>
                         </div>
                         <div class="border border-white/10 bg-[var(--sl-shelf)] p-4 rounded-lg space-y-1.5">
-                            <h4 class="font-medium text-amber-400 text-sm">🔒 100% Data Privacy</h4>
+                            <h4 class="font-medium text-amber-400 text-sm">100% Data Privacy</h4>
                             <p class="text-xs text-[var(--sl-muted)] leading-relaxed">
-                                Self-hosted on your own server. Your customer lists, sales figures, and supplier costs are never exposed to third-party aggregators.
+                                Self-hosted on your own server. Your customer lists, sales figures, and supplier costs remain completely private.
                             </p>
                         </div>
                     </div>
@@ -156,20 +206,20 @@ def main():
                     <h3 class="font-display text-lg text-[var(--sl-paper)] font-semibold">Who Should Use MyStore?</h3>
                     <ul class="space-y-2.5 text-sm text-[var(--sl-paper)]/85">
                         <li class="flex items-start gap-2.5">
-                            <span class="text-emerald-400 mt-0.5">✔</span>
-                            <span><strong>E-Commerce Sellers Managing Multiple Shops:</strong> Businesses running several Shopee and Lazada accounts who want unified order fulfillment in one clean dashboard.</span>
+                            <span class="text-emerald-400 mt-0.5 font-bold">&#10003;</span>
+                            <span><strong>Multi-Store E-Commerce Merchants:</strong> Businesses operating multiple Shopee and Lazada storefronts requiring unified fulfillment in one central portal.</span>
                         </li>
                         <li class="flex items-start gap-2.5">
-                            <span class="text-emerald-400 mt-0.5">✔</span>
-                            <span><strong>Retail Outlets &amp; Hybrid Stores:</strong> Brick-and-mortar stores needing POS counter sales alongside e-commerce multi-outlet inventory tracking.</span>
+                            <span class="text-emerald-400 mt-0.5 font-bold">&#10003;</span>
+                            <span><strong>Retail Outlets &amp; Hybrid Stores:</strong> Brick-and-mortar stores requiring counter point-of-sale operations synced with online inventory.</span>
                         </li>
                         <li class="flex items-start gap-2.5">
-                            <span class="text-emerald-400 mt-0.5">✔</span>
-                            <span><strong>Warehouse &amp; Fulfillment Teams:</strong> Staff using mobile barcode scanners or phones to pick orders, verify items, and pack cartons with zero setup friction.</span>
+                            <span class="text-emerald-400 mt-0.5 font-bold">&#10003;</span>
+                            <span><strong>Warehouse &amp; Fulfillment Teams:</strong> Staff using mobile barcode scanners or handheld devices to pick orders, verify items, and pack cartons.</span>
                         </li>
                         <li class="flex items-start gap-2.5">
-                            <span class="text-emerald-400 mt-0.5">✔</span>
-                            <span><strong>Businesses Tired of Monthly Subscriptions:</strong> Teams wanting full ownership of their software and database without paying $50–$300 every month in recurring SaaS fees.</span>
+                            <span class="text-emerald-400 mt-0.5 font-bold">&#10003;</span>
+                            <span><strong>Merchants Avoiding Recurring Software Fees:</strong> Businesses wanting perpetual ownership of their platform without recurring monthly SaaS subscriptions.</span>
                         </li>
                     </ul>
                 </div>
@@ -247,7 +297,7 @@ def main():
                         rel="noopener noreferrer"
                         class="rounded-md border border-white/20 bg-transparent px-4 py-2.5 text-center text-sm font-semibold text-[var(--sl-paper)] hover:border-sky-400 hover:text-sky-300 transition-colors inline-flex items-center justify-center gap-2"
                     >
-                        <span>▶</span> Download on Google Play
+                        Download on Google Play
                     </a>
                 @endif
 
@@ -408,16 +458,16 @@ def main():
     sftp.close()
     print("  [OK] Uploaded updated product.blade.php.")
 
-    # 2. Update Database Description (without raw app IDs, professional Open Platform copy)
-    print("\n[3] Updating database product record with clean marketing copy...")
+    # 3. Update Database product tagline and description
+    print("\n[3] Updating database product record with clean professional marketing copy...")
+    tagline = "Self-Hosted Multi-Outlet Retail Platform with Shopee & Lazada Open Platform sync. Lifetime license - no subscriptions."
     desc = (
         "MyStore is a self-hosted retail management and point-of-sale platform built on Laravel 12 and React 19. "
         "It provides official Shopee Open Platform and Lazada Open Platform integrations for unified order processing, "
         "automated multi-store inventory synchronization, and bulk thermal AWB airway bill printing. "
         "Includes multi-outlet management, employee role access, cash register reconciliation, and a 5-minute self-hosted web installer."
     )
-    tagline = "Self-Hosted Multi-Outlet Retail Platform with Shopee & Lazada Open Platform sync. Lifetime license — no subscriptions."
-    
+
     update_product_php = f'''php -r "
 require 'vendor/autoload.php';
 \\$app = require_once 'bootstrap/app.php';
@@ -441,12 +491,12 @@ if (\\$prod) {{
 "'''
     run_cmd(ssh, update_product_php)
 
-    # 3. Clear view & cache
+    # 4. Clear compiled view & application cache
     print("\n[4] Clearing cache on server...")
     run_cmd(ssh, "php artisan view:clear && php artisan cache:clear")
 
     ssh.close()
-    print("\n[5] All updates successfully deployed to stacklane.melur.com!")
+    print("\n[5] Deployment complete!")
 
 if __name__ == "__main__":
     main()
