@@ -86,6 +86,53 @@ class WorkspaceController extends Controller
         return response()->json($logs);
     }
 
+    public function addMember(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:120',
+            'email' => 'required|email|max:255',
+            'password' => 'required|string|min:6|max:100',
+            'role' => 'nullable|string|in:owner,member',
+        ]);
+
+        $user = $request->user();
+        $workspace = $this->workspaceAccess->primaryWorkspace($user)
+            ?? $this->workspaceAccess->ensurePersonalWorkspace($user);
+
+        try {
+            $member = $this->workspaceAccess->createMember(
+                $user,
+                $workspace,
+                $validated['name'],
+                $validated['email'],
+                $validated['password'],
+                $validated['role'] ?? WorkspaceMember::ROLE_MEMBER
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $this->activityLogger->log(
+            $user,
+            'team.add_member',
+            "Added team member {$validated['email']} ({$member->role})",
+            null,
+            ['email' => $validated['email'], 'role' => $member->role],
+            $workspace
+        );
+
+        return response()->json([
+            'message' => 'Member added successfully.',
+            'member' => [
+                'id' => $member->id,
+                'user_id' => $member->user_id,
+                'role' => $member->role,
+                'name' => $member->user?->name,
+                'email' => $member->user?->email,
+            ],
+        ], 201);
+    }
+
     public function invite(Request $request): JsonResponse
     {
         $validated = $request->validate([
