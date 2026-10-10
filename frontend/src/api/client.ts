@@ -793,6 +793,19 @@ export async function getWorkspace(): Promise<WorkspaceResponse> {
   return res.data;
 }
 
+export async function addWorkspaceMember(payload: {
+  name: string;
+  email: string;
+  password: string;
+  role?: 'owner' | 'member';
+}): Promise<{
+  message: string;
+  member: WorkspaceMemberRow;
+}> {
+  const res = await api.post('/workspace/members', payload);
+  return res.data;
+}
+
 export async function inviteWorkspaceMember(email: string): Promise<{
   message: string;
   invite: { id: number; email: string; token: string; expires_at: string };

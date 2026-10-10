@@ -145,6 +145,55 @@ class WorkspaceAccess
             ->get();
     }
 
+    /**
+     * Directly create and attach a member to the workspace by the owner.
+     */
+    public function createMember(
+        User $owner,
+        Workspace $workspace,
+        string $name,
+        string $email,
+        string $password,
+        string $role = WorkspaceMember::ROLE_MEMBER
+    ): WorkspaceMember {
+        if (!$this->isOwnerOfWorkspace($owner, $workspace)) {
+            throw new \RuntimeException('Only the workspace owner can add members.');
+        }
+
+        $email = strtolower(trim($email));
+        if ($email === strtolower($owner->email)) {
+            throw new \RuntimeException('You are already the owner of this workspace.');
+        }
+
+        $alreadyMember = WorkspaceMember::query()
+            ->where('workspace_id', $workspace->id)
+            ->whereHas('user', fn ($q) => $q->whereRaw('LOWER(email) = ?', [$email]))
+            ->exists();
+        if ($alreadyMember) {
+            throw new \RuntimeException('A member with this email is already in the workspace.');
+        }
+
+        return DB::transaction(function () use ($workspace, $name, $email, $password, $role) {
+            // Check if user already exists in system, or create new
+            $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+            if (!$user) {
+                $user = User::create([
+                    'name' => trim($name),
+                    'email' => $email,
+                    'password' => $password, // auto-hashed by casts()
+                ]);
+            }
+
+            return WorkspaceMember::create([
+                'workspace_id' => $workspace->id,
+                'user_id' => $user->id,
+                'role' => in_array($role, [WorkspaceMember::ROLE_OWNER, WorkspaceMember::ROLE_MEMBER], true)
+                    ? $role
+                    : WorkspaceMember::ROLE_MEMBER,
+            ]);
+        });
+    }
+
     public function invite(User $owner, Workspace $workspace, string $email): WorkspaceInvite
     {
         if (!$this->isOwnerOfWorkspace($owner, $workspace)) {

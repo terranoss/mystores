@@ -10,7 +10,6 @@ import 'features/dashboard/dashboard_screen.dart';
 import 'features/orders/orders_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/pick_list/pick_list_screen.dart';
-import 'features/plant_id/screens/plant_id_screen.dart';
 import 'features/stock/stock_screen.dart';
 import 'features/team/team_screen.dart';
 import 'shared/theme/app_theme.dart';
@@ -78,10 +77,6 @@ final _router = GoRouter(
           builder: (_, __) => const StockScreen(),
         ),
         GoRoute(
-          path: '/plant-id',
-          builder: (_, __) => const PlantIdScreen(),
-        ),
-        GoRoute(
           path: '/team',
           builder: (_, __) => const TeamScreen(),
         ),
@@ -144,7 +139,6 @@ class _AppShell extends StatelessWidget {
   int _currentIndex(String location) {
     if (location.startsWith('/orders')) return 1;
     if (location.startsWith('/stock')) return 2;
-    if (location.startsWith('/plant-id')) return 3;
     return 0;
   }
 
@@ -170,9 +164,6 @@ class _AppShell extends StatelessWidget {
               case 2:
                 GoRouter.of(context).go('/stock');
                 break;
-              case 3:
-                GoRouter.of(context).go('/plant-id');
-                break;
             }
           },
           destinations: const [
@@ -190,11 +181,6 @@ class _AppShell extends StatelessWidget {
               icon: Icon(Icons.inventory_2_outlined),
               selectedIcon: Icon(Icons.inventory_2_rounded),
               label: 'Stock',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.local_florist_outlined),
-              selectedIcon: Icon(Icons.local_florist_rounded),
-              label: 'Plant ID',
             ),
           ],
         ),
