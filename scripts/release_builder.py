@@ -209,6 +209,9 @@ class ReleaseEngine:
         os.makedirs(web_dest, exist_ok=True)
 
         # Exclusions for backend
+        # NOTE: "vendor" is deliberately NOT excluded. The package is sold as
+        # "no Composer required on your hosting", so the compiled dependency
+        # tree must ship. public/index.php hard-requires vendor/autoload.php.
         backend_src = os.path.join(self.repo_root, "backend")
         exclude_dirs = {
             ".git", ".github", "node_modules", "tests", ".idea", ".vscode",
@@ -216,7 +219,8 @@ class ReleaseEngine:
         }
         exclude_files = {
             ".env", ".env.production", ".env.local", "installed",
-            "license.json", ".gitattributes", ".gitignore"
+            "license.json", ".gitattributes", ".gitignore",
+            ".phpunit.result.cache"
         }
 
         copied_backend_files = 0
@@ -237,6 +241,23 @@ class ReleaseEngine:
                     continue
                 shutil.copy2(os.path.join(root, f), os.path.join(target_dir, f))
                 copied_backend_files += 1
+
+        # Ship the compiled Composer dependency tree so buyers never need to
+        # run `composer install` on their host. Copied wholesale via copytree
+        # (thousands of files) rather than the per-file walk above.
+        vendor_src = os.path.join(backend_src, "vendor")
+        vendor_dest = os.path.join(web_dest, "vendor")
+        if os.path.isdir(vendor_src):
+            def _vendor_ignore(_dir, names):
+                skip = {".git", ".gitignore"}
+                return [n for n in names if n in skip]
+            shutil.copytree(vendor_src, vendor_dest, dirs_exist_ok=True, ignore=_vendor_ignore)
+            n_vendor = sum(len(f) for _, _, f in os.walk(vendor_dest))
+            copied_backend_files += n_vendor
+            self.log(f"  [OK] Bundled compiled dependencies: vendor/ ({n_vendor} files).")
+        else:
+            self.log("  [FAIL] backend/vendor is missing - run 'composer install --no-dev' first.")
+            return {"success": False, "error": "backend/vendor directory not found."}
 
         # Copy React frontend source code into Web_and_Backend/frontend so developers can modify UI
         self.log("  [OK] Bundling React 19 source code for developer customization...")
