@@ -3,13 +3,11 @@ import { PageShell } from '../components/PageShell';
 import Spinner from '../components/Spinner';
 import { useToast } from '../context/ToastContext';
 import {
-  acceptWorkspaceInvite,
+  addWorkspaceMember,
   getWorkspace,
   getWorkspaceActivity,
-  inviteWorkspaceMember,
   removeWorkspaceMember,
   type WorkspaceActivityEntry,
-  type WorkspaceInviteRow,
   type WorkspaceMemberRow,
   type WorkspaceResponse,
 } from '../api/client';
@@ -20,9 +18,10 @@ export default function Team() {
   const { showToast } = useToast();
   const [data, setData] = useState<WorkspaceResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [email, setEmail] = useState('');
-  const [inviteToken, setInviteToken] = useState<string | null>(null);
-  const [acceptToken, setAcceptToken] = useState('');
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberPassword, setNewMemberPassword] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState<'owner' | 'member'>('member');
   const [saving, setSaving] = useState(false);
   const [activity, setActivity] = useState<WorkspaceActivityEntry[]>([]);
   const [activityPage, setActivityPage] = useState(1);
@@ -61,38 +60,28 @@ export default function Team() {
     void load();
   }, []);
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
-    setSaving(true);
-    setInviteToken(null);
-    try {
-      const res = await inviteWorkspaceMember(email.trim());
-      setInviteToken(res.invite.token);
-      setEmail('');
-      showToast('Invite created. Share the token with your teammate.', 'success');
-      await load();
-    } catch (err: any) {
-      showToast(err?.response?.data?.message || 'Invite failed.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAccept = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (acceptToken.trim().length !== 64) {
-      showToast('Paste the full 64-character invite token.', 'error');
+    if (!newMemberEmail.trim() || !newMemberPassword.trim() || !newMemberName.trim()) {
+      showToast('Please fill in Name, Email and Password.', 'error');
       return;
     }
     setSaving(true);
     try {
-      await acceptWorkspaceInvite(acceptToken.trim());
-      setAcceptToken('');
-      showToast('Joined workspace.', 'success');
+      await addWorkspaceMember({
+        name: newMemberName.trim(),
+        email: newMemberEmail.trim(),
+        password: newMemberPassword.trim(),
+        role: newMemberRole,
+      });
+      setNewMemberName('');
+      setNewMemberEmail('');
+      setNewMemberPassword('');
+      setNewMemberRole('member');
+      showToast('Team member added successfully!', 'success');
       await load();
     } catch (err: any) {
-      showToast(err?.response?.data?.message || 'Could not accept invite.', 'error');
+      showToast(err?.response?.data?.message || 'Failed to add member.', 'error');
     } finally {
       setSaving(false);
     }
@@ -286,68 +275,86 @@ export default function Team() {
             </div>
 
             {isOwner && (
-              <div className="bg-white rounded-2xl border border-ink-100 shadow-sm p-6 space-y-4">
-                <h3 className="font-heading text-base font-semibold text-ink-950">Invite member</h3>
-                <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="teammate@email.com"
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-clay-400/40"
-                  />
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-4 py-2.5 text-sm font-semibold bg-ink-950 text-white rounded-xl hover:bg-ink-800 disabled:opacity-50"
-                  >
-                    {saving ? 'Creating…' : 'Create invite'}
-                  </button>
+              <div className="bg-white rounded-2xl border border-ink-100 shadow-sm p-6 space-y-5">
+                <div>
+                  <h3 className="font-heading text-base font-semibold text-ink-950">Add Team Member</h3>
+                  <p className="text-xs text-ink-400 mt-0.5">
+                    Create a direct login for staff or cashiers. They can log in immediately on the web or mobile app.
+                  </p>
+                </div>
+
+                <form onSubmit={handleAddMember} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-ink-700 mb-1">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newMemberName}
+                        onChange={(e) => setNewMemberName(e.target.value)}
+                        placeholder="e.g. Ahmad Cashier"
+                        className="w-full px-4 py-2.5 rounded-xl border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-clay-400/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-ink-700 mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={newMemberEmail}
+                        onChange={(e) => setNewMemberEmail(e.target.value)}
+                        placeholder="ahmad@store.com"
+                        className="w-full px-4 py-2.5 rounded-xl border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-clay-400/40"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-ink-700 mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        value={newMemberPassword}
+                        onChange={(e) => setNewMemberPassword(e.target.value)}
+                        placeholder="Minimum 6 characters"
+                        className="w-full px-4 py-2.5 rounded-xl border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-clay-400/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-ink-700 mb-1">
+                        Role
+                      </label>
+                      <select
+                        value={newMemberRole}
+                        onChange={(e) => setNewMemberRole(e.target.value as 'owner' | 'member')}
+                        className="w-full px-4 py-2.5 rounded-xl border border-ink-200 text-sm focus:outline-none focus:ring-2 focus:ring-clay-400/40 bg-white"
+                      >
+                        <option value="member">Staff / Member (Orders, Pick List, Stock)</option>
+                        <option value="owner">Owner (Full Admin Access)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="px-5 py-2.5 text-sm font-semibold bg-ink-950 text-white rounded-xl hover:bg-ink-800 disabled:opacity-50 shadow-sm"
+                    >
+                      {saving ? 'Adding Member…' : 'Add Member'}
+                    </button>
+                  </div>
                 </form>
-                {inviteToken && (
-                  <div className="p-3 rounded-xl bg-ink-50 border border-ink-100 space-y-2">
-                    <p className="text-xs font-medium text-ink-600">
-                      Invite token (share with teammate after they log in):
-                    </p>
-                    <code className="block text-xs break-all font-mono text-ink-800">{inviteToken}</code>
-                  </div>
-                )}
-                {data.pending_invites.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide">Pending</p>
-                    {data.pending_invites.map((inv: WorkspaceInviteRow) => (
-                      <p key={inv.id} className="text-sm text-ink-600">
-                        {inv.email} · expires {new Date(inv.expires_at).toLocaleDateString()}
-                      </p>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
-
-            <div className="bg-white rounded-2xl border border-ink-100 shadow-sm p-6 space-y-4">
-              <h3 className="font-heading text-base font-semibold text-ink-950">Accept an invite</h3>
-              <p className="text-sm text-ink-500">
-                Log in with the invited email, then paste the invite token from the owner.
-              </p>
-              <form onSubmit={handleAccept} className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  value={acceptToken}
-                  onChange={(e) => setAcceptToken(e.target.value)}
-                  placeholder="64-character invite token"
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-ink-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-clay-400/40"
-                />
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2.5 text-sm font-semibold border border-ink-200 text-ink-800 rounded-xl hover:bg-ink-50 disabled:opacity-50"
-                >
-                  Accept invite
-                </button>
-              </form>
-            </div>
           </>
         )}
       </div>

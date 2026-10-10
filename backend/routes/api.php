@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Workspace / team
     Route::get('/workspace', [WorkspaceController::class, 'show']);
     Route::get('/workspace/activity', [WorkspaceController::class, 'activity']);
+    Route::post('/workspace/members', [WorkspaceController::class, 'addMember'])->middleware('throttle:mutation');
     Route::post('/workspace/invites', [WorkspaceController::class, 'invite'])->middleware('throttle:mutation');
     Route::post('/workspace/invites/accept', [WorkspaceController::class, 'acceptInvite'])->middleware('throttle:mutation');
     Route::delete('/workspace/members/{memberId}', [WorkspaceController::class, 'removeMember'])->middleware('throttle:mutation');

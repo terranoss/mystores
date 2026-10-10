@@ -1221,7 +1221,7 @@ export default function MenuGuide() {
                   </dt>
                   <dd className="text-xs text-ink-600 mt-1 leading-relaxed">
                     No. Those two areas are web-only. The mobile app covers Dashboard, Orders,
-                    Stock, Pick Lists, Team, and Plant ID.
+                    Stock, Pick Lists, and Team.
                   </dd>
                 </div>
                 <div>
