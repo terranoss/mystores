@@ -167,7 +167,14 @@ export default function Team() {
                   </code>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span>1. Install MyStore on Play Store</span>
+                  <a
+                    href="https://play.google.com/store/apps/details?id=com.melur.mystores"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-clay-300 hover:text-white underline font-medium"
+                  >
+                    1. Install on Play Store
+                  </a>
                   <span>→</span>
                   <span>2. Scan QR</span>
                   <span>→</span>
