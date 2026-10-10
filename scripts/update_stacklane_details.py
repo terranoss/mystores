@@ -137,9 +137,9 @@ def main():
                             </p>
                         </div>
                         <div class="border border-white/10 bg-[var(--sl-shelf)] p-4 rounded-lg space-y-1.5">
-                            <h4 class="font-medium text-amber-400 text-sm">🏖️ Multi-Store Vacation Mode</h4>
+                            <h4 class="font-medium text-amber-400 text-sm">🏖️ Vacation Mode &amp; Stock Guard</h4>
                             <p class="text-xs text-[var(--sl-muted)] leading-relaxed">
-                                Toggle vacation mode across all your connected Shopee and Lazada shops simultaneously with a single click.
+                                Toggle vacation mode directly via Shopee Open Platform API, and synchronize inventory buffers across Shopee and Lazada to prevent overselling while away.
                             </p>
                         </div>
                         <div class="border border-white/10 bg-[var(--sl-shelf)] p-4 rounded-lg space-y-1.5">
