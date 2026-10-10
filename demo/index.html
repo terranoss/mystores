@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!--
+  MyStore Interactive Demo — static replica
+  ==========================================
+  Replicates the MyStore dashboard UI using fabricated sample data.
+  No backend, no API calls, no real customer or order data.
+
+  This file intentionally drifts from the real app over time. When updating,
+  diff against these sources:
+    frontend/src/index.css                 (ink/clay theme tokens)
+    frontend/src/components/Layout.tsx     (sidebar + topbar shell)
+    frontend/src/pages/Dashboard.tsx       (KPI cards, sales trend)
+    frontend/src/pages/Stock.tsx           (stock table)
+    frontend/src/components/orderHelpers.tsx  (status badge taxonomy)
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>MyStore Demo — Interactive Sample Dashboard</title>
+  <meta name="description" content="Interactive sample of the MyStore dashboard. Sample data only — not connected to a live store." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    html, body { background-color: #f7f6f2; }
+    body { margin: 0; }
+  </style>
+  <link rel="stylesheet" href="assets/demo.css" />
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="assets/demo.js"></script>
+</body>
+</html>
