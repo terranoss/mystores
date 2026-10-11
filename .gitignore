@@ -16,6 +16,9 @@ __pycache__/
 deploy/deploy.config.json
 test-screenshots/
 *.png
+!mobile/assets/icon/**/*.png
+!mobile/android/app/src/main/res/drawable-*/ic_launcher_*.png
+!mobile/android/app/src/main/res/mipmap-*/launcher_icon.png
 test-results/
 node_modules/
 
