@@ -1,18 +1,27 @@
-import paramiko
+"""Points the Stacklane product at the live Stripe price.
 
-HOST = "103.10.78.60"
-USER = "melurcom"
-PORT = 55000
-KEY_PATH = r"D:\GitHub\PinScout\docs\melurcom"
-REMOTE_PATH = "/home/melurcom/stacklane.melur.com/web"
+Usage:
+    set STACKLANE_SSH_PASS (PowerShell: $env:STACKLANE_SSH_PASS = '...')
+    python scripts/update_stripe_price_live.py
+"""
+
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+import stacklane_ssh as ssh_helper  # noqa: E402
+
+HOST = ssh_helper.HOST
+USER = ssh_helper.USER
+PORT = ssh_helper.PORT
+KEY_PATH = str(ssh_helper.KEY_PATH)
+REMOTE_PATH = ssh_helper.REMOTE_PATH
 PRICE_ID = "price_1UPA4mEdddTGsMgJo5Z4TwsL"
 
 def main():
     print("[1] Connecting to stacklane.melur.com via SSH...")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    key = paramiko.RSAKey.from_private_key_file(KEY_PATH, password="Wanderer*1974")
-    ssh.connect(HOST, port=PORT, username=USER, pkey=key, timeout=20)
+    ssh = ssh_helper._client()
     print("  [OK] Connected successfully.")
 
     print(f"\n[2] Updating stripe_price_id in Stacklane database to: {PRICE_ID}...")
