@@ -1,14 +1,26 @@
+"""Uploads the MyStore release ZIP and upserts the Stacklane product row.
+
+Usage:
+    set STACKLANE_SSH_PASS (PowerShell: $env:STACKLANE_SSH_PASS = '...')
+    python scripts/deploy_to_stacklane.py
+"""
+
 import os
 import sys
+import pathlib
 import paramiko
 from scp import SCPClient
 
-HOST = "103.10.78.60"
-USER = "melurcom"
-PORT = 55000
-KEY_PATH = r"D:\GitHub\PinScout\docs\melurcom"
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+import stacklane_ssh as ssh_helper  # noqa: E402
+
+HOST = ssh_helper.HOST
+USER = ssh_helper.USER
+PORT = ssh_helper.PORT
+KEY_PATH = str(ssh_helper.KEY_PATH)
 ZIP_PATH = r"D:\GitHub\mystores\dist_release\MyStore-v1.0.0-Codebase.zip"
-REMOTE_PATH = "/home/melurcom/stacklane.melur.com/web"
+REMOTE_PATH = ssh_helper.REMOTE_PATH
 
 def run_cmd(ssh, cmd):
     full_cmd = f"cd {REMOTE_PATH} && {cmd}"
@@ -25,11 +37,7 @@ def run_cmd(ssh, cmd):
 
 def main():
     print("[1] Connecting to stacklane.melur.com via SSH...")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    
-    key = paramiko.RSAKey.from_private_key_file(KEY_PATH, password="Wanderer*1974")
-    ssh.connect(HOST, port=PORT, username=USER, pkey=key, timeout=20)
+    ssh = ssh_helper._client()
     print("  [OK] Connected successfully.")
 
     # 1. Ensure download directory exists

@@ -26,3 +26,6 @@ graphify-out/
 dist_release/
 release_artifacts/
 
+
+# Local SSH trust store for stacklane deploy scripts (see scripts/stacklane_ssh.py)
+scripts/.known_hosts

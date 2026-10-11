@@ -1,0 +1,23 @@
+{
+    "_comment": "Source of truth for the MyStore product record on stacklane.melur.com. Prices here must match scripts/update_myr_price.py output (RM 199). 'amount_display' is shown to Malaysian visitors regardless of language; 'amount_display_usd' is shown to everyone else.",
+    "code": "mystores",
+    "translations": {
+        "en": {
+            "name": "MyStore",
+            "tagline": "Self-Hosted Multi-Outlet Retail Platform with Shopee & Lazada Open Platform sync. Lifetime license - no subscriptions.",
+            "description": "MyStore is a self-hosted retail management and point-of-sale platform built on Laravel 12 and React 19. It provides official Shopee Open Platform and Lazada Open Platform integrations for unified order processing, automated multi-store inventory synchronization, and bulk thermal AWB airway bill printing. Includes multi-outlet management, employee role access, cash register reconciliation, and a 5-minute self-hosted web installer.",
+            "price_label": "Perpetual License (1 Domain)"
+        },
+        "ms": {
+            "name": "MyStore",
+            "tagline": "Platform Peruncitan Berhos Sendiri dengan integrasi Shopee & Lazada Open Platform. Lesen seumur hidup - tiada langganan.",
+            "description": "MyStore ialah platform pengurusan peruncitan dan point-of-sale berhos sendiri yang dibina dengan Laravel 12 dan React 19. Ia menyediakan integrasi rasmi Shopee Open Platform dan Lazada Open Platform untuk pemprosesan pesanan bersatu, penyegerakan inventori pelbagai kedai secara automatik, dan pencetakan pukal airway bill (AWB) haba terma. Termasuk pengurusan pelbagai cawangan, akses peranan pekerja, penyesuaian akaun register tunai, dan pemasang web berskala besar dalam 5 minit.",
+            "price_label": "Lesen Kekal (1 Domain)"
+        }
+    },
+    "pricing": {
+        "amount_display": "RM 199",
+        "amount_display_usd": "$50",
+        "toyyibpay_amount_cents": 19900
+    }
+}

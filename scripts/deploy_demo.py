@@ -10,6 +10,7 @@ The demo is a self-contained static replica with fabricated sample data.
 It has no backend and makes no API calls.
 
 Usage:
+    set STACKLANE_SSH_PASS (PowerShell: $env:STACKLANE_SSH_PASS = '...')
     python scripts/deploy_demo.py
 """
 
@@ -19,13 +20,15 @@ import posixpath
 import paramiko
 from scp import SCPClient
 
-HOST = "103.10.78.60"
-USER = "melurcom"
-PORT = 55000
-KEY_PATH = r"D:\GitHub\PinScout\docs\melurcom"
-SSH_PASSWORD = "Wanderer*1974"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import stacklane_ssh as ssh_helper  # noqa: E402
 
-REMOTE_PATH = "/home/melurcom/stacklane.melur.com/web"
+HOST = ssh_helper.HOST
+USER = ssh_helper.USER
+PORT = ssh_helper.PORT
+KEY_PATH = str(ssh_helper.KEY_PATH)
+
+REMOTE_PATH = ssh_helper.REMOTE_PATH
 REMOTE_DEMO_DIR = f"{REMOTE_PATH}/public/demo"
 REMOTE_ASSETS_DIR = f"{REMOTE_DEMO_DIR}/assets"
 
@@ -62,17 +65,14 @@ def main():
         sys.exit(1)
 
     print("[1] Connecting to stacklane.melur.com via SSH...")
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    key = paramiko.RSAKey.from_private_key_file(KEY_PATH, password=SSH_PASSWORD)
-    ssh.connect(HOST, port=PORT, username=USER, pkey=key, timeout=20)
+    ssh_client = ssh_helper._client()
     print("  [OK] Connected.")
 
     print("\n[2] Creating remote demo directories...")
-    run_cmd(ssh, f"mkdir -p {REMOTE_ASSETS_DIR}")
+    run_cmd(ssh_client, f"mkdir -p {REMOTE_ASSETS_DIR}")
 
     print("\n[3] Uploading demo files...")
-    with SCPClient(ssh.get_transport()) as scp:
+    with SCPClient(ssh_client.get_transport()) as scp:
         for rel, remote_rel in FILES:
             src = os.path.join(DEMO_SRC, rel)
             dst = posixpath.join(REMOTE_DEMO_DIR, remote_rel)
@@ -81,20 +81,20 @@ def main():
             print(f"  [OK] {remote_rel} ({size:,} bytes)")
 
     print("\n[4] Setting permissions...")
-    run_cmd(ssh, f"find {REMOTE_DEMO_DIR} -type d -exec chmod 755 {{}} +")
-    run_cmd(ssh, f"find {REMOTE_DEMO_DIR} -type f -exec chmod 644 {{}} +")
+    run_cmd(ssh_client, f"find {REMOTE_DEMO_DIR} -type d -exec chmod 755 {{}} +")
+    run_cmd(ssh_client, f"find {REMOTE_DEMO_DIR} -type f -exec chmod 644 {{}} +")
 
     print("\n[5] Verifying remote files...")
-    status, out, _ = run_cmd(ssh, f"ls -la {REMOTE_DEMO_DIR} {REMOTE_ASSETS_DIR}")
+    status, out, _ = run_cmd(ssh_client, f"ls -la {REMOTE_DEMO_DIR} {REMOTE_ASSETS_DIR}")
     if status != 0:
         print("[FAIL] Could not list remote demo directory.")
-        ssh.close()
+        ssh_client.close()
         sys.exit(1)
 
-    ssh.close()
+    ssh_client.close()
     print("\n[OK] Demo deployed.")
     print(f"  URL: https://stacklane.melur.com/demo/")
-    print("  Next: add the demo button to the product page via update_stacklane_details.py")
+    print("  Note: the product page link is source-controlled in the PinScout repo.")
 
 
 if __name__ == "__main__":
