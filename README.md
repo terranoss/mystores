@@ -806,23 +806,24 @@ npm run deploy
 8. Sets up cron jobs for the scheduler and queue worker (appends to existing crontab)
 9. Verifies the app responds with HTTP 200
 
-### Running Queue Workers
-
-The deploy script configures a cron job that runs the queue worker every minute:
-
+### Running Queue Workers & Scheduler
+ 
+The deploy script configures two cron jobs on the production server (using the absolute CLI binary, e.g., `/usr/local/bin/php` or `/opt/alt/php83/usr/bin/php`):
+ 
 ```cron
-* * * * * php /path/to/backend/artisan queue:work --stop-when-empty --timeout=60
+* * * * * /usr/local/bin/php /path/to/backend/artisan schedule:run >> /path/to/backend/storage/logs/scheduler.log 2>&1
+* * * * * /usr/local/bin/php /path/to/backend/artisan queue:work --stop-when-empty --timeout=600 >> /path/to/backend/storage/logs/queue.log 2>&1
 ```
 
-When a cross-store stock update is saved, the HTTP response returns immediately and the queued `UpdateShopeeStockJob` processes the linked stores in the background. The cron polls the `jobs` table every minute and processes up to one job per invocation.
+- **Queue Worker**: When stock pushes or webhook events arrive, the HTTP response returns immediately and queued jobs (`UpdateShopeeStockJob`, `SyncShopeeOrderJob`) process in the background. The queue worker cron drains all ready jobs (`--stop-when-empty`) every minute.
+- **Queue Health Monitoring**: A scheduled check runs every 15 minutes in `routes/console.php` and writes a `[QUEUE HEALTH ALERT]` to `laravel.log` if unattempted jobs remain queued for >15 minutes.
+- **Log Rotation**: A daily scheduled task automatically truncates `queue.log` and `scheduler.log` if they exceed 10 MB (retaining the latest 1 MB) to protect disk space.
 
-For burst processing (e.g., running down a backlog), use the helper script:
+For on-demand queue processing:
 
 ```bash
 python deploy/process_queue.py
 ```
-
-This SSH's into the server and runs `queue:work --once` in a loop (up to 12 iterations).
 
 ---
 

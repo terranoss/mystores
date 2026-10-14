@@ -150,6 +150,35 @@ def main():
         print(f"[-] SSH Connection Failed: {e}")
         sys.exit(1)
 
+    # Validate PHP binary is true CLI (not php-cgi / FastCGI)
+    sapi_status, sapi_out, _ = run_remote_command(ssh, f"{php_bin} -r \"echo PHP_SAPI;\"", "/tmp")
+    sapi_out = sapi_out.strip().lower() if sapi_status == 0 else ""
+    if "cgi" in sapi_out or sapi_status != 0:
+        print(f"[*] Configured PHP binary '{php_bin}' has SAPI '{sapi_out}' (CGI detected or failed).")
+        print("[*] Probing candidate CLI binaries...")
+        cli_candidates = [
+            "/usr/local/bin/php",
+            "/opt/alt/php83/usr/bin/php",
+            "/opt/alt/php82/usr/bin/php",
+            "/usr/bin/php-cli",
+            "ea-php83",
+            "ea-php82",
+        ]
+        found_cli = None
+        for candidate in cli_candidates:
+            c_status, c_out, _ = run_remote_command(ssh, f"{candidate} -r \"echo PHP_SAPI;\"", "/tmp")
+            if c_status == 0 and "cli" in c_out.strip().lower():
+                found_cli = candidate
+                break
+
+        if found_cli:
+            print(f"[+] Found CLI PHP binary: {found_cli}. Updating active PHP binary for this deployment.")
+            php_bin = found_cli
+        else:
+            print(f"[-] Warning: Could not locate a confirmed CLI PHP binary. Continuing with '{php_bin}'.")
+    else:
+        print(f"[+] Confirmed PHP binary '{php_bin}' is CLI (SAPI: {sapi_out}).")
+
     ssh.exec_command(f"mkdir -p {shlex.quote(deploy_path)}")
 
     print_step(2, "Backing Up Production Database")
@@ -305,7 +334,7 @@ def main():
     clean_deploy_path = deploy_path.rstrip('/')
     cron_jobs = [
         f"* * * * * {php_bin} -d disable_functions=\"\" {clean_deploy_path}/backend/artisan schedule:run >> {clean_deploy_path}/backend/storage/logs/scheduler.log 2>&1",
-        f"* * * * * {php_bin} {clean_deploy_path}/backend/artisan queue:work --stop-when-empty --timeout=600 >> /dev/null 2>&1"
+        f"* * * * * {php_bin} {clean_deploy_path}/backend/artisan queue:work --stop-when-empty --timeout=600 >> {clean_deploy_path}/backend/storage/logs/queue.log 2>&1"
     ]
     
     status, existing_cron, _ = run_remote_command(ssh, "crontab -l", "/tmp")

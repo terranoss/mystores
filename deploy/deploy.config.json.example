@@ -13,7 +13,7 @@
   },
   "server": {
     "deploy_path": "/home/melurcom/mystores.melur.com/",
-    "php_binary": "php",
+    "php_binary": "/usr/local/bin/php",
     "composer_binary": "composer"
   },
   "first_deploy": true
