@@ -320,9 +320,12 @@ QUICK START (5 MINUTES):
    https://your-domain.com/install
 4. Follow the 5-step installer wizard and enter your Stacklane License Key.
 5. Your store and dashboard are live!
-6. (Recommended) Add a 1-minute Cron Job in cPanel / server:
-   * * * * * cd /path-to-mystore && php artisan schedule:run >> /dev/null 2>&1
-   (This runs automated Shopee & Lazada order sync and token refresh).
+6. (Recommended) Add Background Cron Jobs in cPanel / server:
+   # Queue worker (processes asynchronous stock pushes and webhooks):
+   * * * * * /usr/local/bin/php /path-to-mystore/artisan queue:work --stop-when-empty --timeout=600 >> /path-to-mystore/storage/logs/queue.log 2>&1
+   # Scheduled tasks (Shopee & Lazada order polling, token rotation):
+   * * * * * /usr/local/bin/php /path-to-mystore/artisan schedule:run >> /path-to-mystore/storage/logs/scheduler.log 2>&1
+   (Note: In cPanel, always use /usr/local/bin/php instead of bare 'php' to ensure CLI mode).
 
 SUPPORT & LICENSING:
 --------------------
