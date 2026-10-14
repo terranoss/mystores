@@ -1,5 +1,5 @@
 {
-  "name": "stores",
+  "name": "mystores",
   "private": true,
   "scripts": {
     "deploy": "python deploy/deploy.py",

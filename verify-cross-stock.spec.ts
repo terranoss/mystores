@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { execSync } from 'child_process';
+import path from 'path';
+
+// Resolve the deploy folder from this spec's own location so the queue is
+// always drained against this project (mystores.melur.com), never a sibling repo.
+const DEPLOY_DIR = path.resolve(__dirname, 'deploy');
 
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:5173';
 const EMAIL = process.env.TEST_USER_EMAIL || '';
@@ -8,7 +13,7 @@ const PASSWORD = process.env.TEST_USER_PASSWORD || '';
 function processQueue() {
   try {
     const result = execSync(
-      'cd "D:\\GitHub\\stores\\deploy" && python process_queue.py',
+      `cd "${DEPLOY_DIR}" && python process_queue.py`,
       { timeout: 60000, shell: 'cmd.exe', encoding: 'utf-8' }
     );
     const count = parseInt(result.toString().trim());
