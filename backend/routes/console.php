@@ -42,3 +42,34 @@ Schedule::call(function () {
     app(NotificationGeneratorService::class)->generateStoreHealthNotifications();
 })->name('store-health-notifications')->dailyAt('08:00')->withoutOverlapping();
 
+// Monitor queue health: alert if jobs remain pending for more than 15 minutes
+Schedule::call(function () {
+    $stuckJobsCount = \Illuminate\Support\Facades\DB::table('jobs')
+        ->where('attempts', 0)
+        ->where('created_at', '<', now()->subMinutes(15)->timestamp)
+        ->count();
+
+    if ($stuckJobsCount > 0) {
+        \Illuminate\Support\Facades\Log::warning("[QUEUE HEALTH ALERT] {$stuckJobsCount} pending job(s) in queue have not been processed for >15 minutes. Ensure 'artisan queue:work' cron is running.");
+    }
+})->name('queue-health-check')->everyFifteenMinutes()->withoutOverlapping();
+
+// Rotate & trim log files if they grow past 10MB to prevent server disk exhaustion
+Schedule::call(function () {
+    $logFiles = [
+        storage_path('logs/queue.log'),
+        storage_path('logs/scheduler.log'),
+    ];
+
+    foreach ($logFiles as $file) {
+        if (file_exists($file) && filesize($file) > 10 * 1024 * 1024) {
+            // Keep the last 1MB of log lines
+            $fp = fopen($file, 'r');
+            fseek($fp, -1 * 1024 * 1024, SEEK_END);
+            $content = fread($fp, 1024 * 1024);
+            fclose($fp);
+
+            file_put_contents($file, "[...truncated by daily scheduler...]\n" . $content);
+        }
+    }
+})->name('log-rotation')->daily();
