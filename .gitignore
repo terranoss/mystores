@@ -11,6 +11,7 @@ dist
 Thumbs.db
 __pycache__/
 *.pyc
+skills-lock.json
 
 # Deploy secrets
 deploy/deploy.config.json
@@ -24,10 +25,14 @@ node_modules/
 
 # graphify
 graphify-out/
+.agents/
 
 # Release builds
 dist_release/
 release_artifacts/
+
+# Local issue tracker (see docs/agents/issue-tracker.md)
+.scratch/
 
 
 # Local SSH trust store for stacklane deploy scripts (see scripts/stacklane_ssh.py)
