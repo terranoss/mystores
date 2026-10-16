@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
-use App\Services\Licensing\LicenseService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -16,17 +15,13 @@ use Illuminate\Support\Facades\Log;
 
 class InstallController extends Controller
 {
-    public function __construct(private LicenseService $licenseService)
-    {
-    }
-
     /**
      * Check installation status.
      */
     public function status(): JsonResponse
     {
         return response()->json([
-            'installed' => $this->licenseService->isInstalled(),
+            'installed' => File::exists(storage_path('installed')),
         ]);
     }
 
@@ -148,38 +143,15 @@ class InstallController extends Controller
     }
 
     /**
-     * Activate the license with Stacklane.
-     */
-    public function activateLicense(Request $request): JsonResponse
-    {
-        $request->validate([
-            'license_key' => 'required|string',
-            'domain' => 'nullable|string',
-        ]);
-
-        $result = $this->licenseService->activate(
-            $request->input('license_key'),
-            $request->input('domain')
-        );
-
-        if (!$result['success']) {
-            return response()->json($result, 422);
-        }
-
-        return response()->json($result);
-    }
-
-    /**
      * Complete the installation process.
      */
     public function execute(Request $request): JsonResponse
     {
-        if ($this->licenseService->isInstalled()) {
+        if (File::exists(storage_path('installed'))) {
             return response()->json(['message' => 'Application is already installed.'], 403);
         }
 
         $data = $request->validate([
-            'license_key' => 'required|string',
             'db_connection' => 'required|string|in:mysql,sqlite',
             'db_host' => 'required_if:db_connection,mysql|string',
             'db_port' => 'required_if:db_connection,mysql',
@@ -194,25 +166,13 @@ class InstallController extends Controller
             'store_name' => 'required|string|max:100',
         ]);
 
-        // 1. Verify license is activated
-        $license = $this->licenseService->getSavedLicense();
-        if (!$license || strtoupper($license['key'] ?? '') !== strtoupper(trim($data['license_key']))) {
-            $actResult = $this->licenseService->activate($data['license_key'], parse_url($data['app_url'], PHP_URL_HOST));
-            if (!$actResult['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'License verification failed: ' . $actResult['message'],
-                ], 422);
-            }
-        }
-
-        // 2. Prepare and write .env
+        // 1. Prepare and write .env
         $this->writeEnvFile($data);
 
-        // 3. Dynamically set DB connection in current process
+        // 2. Dynamically set DB connection in current process
         $this->configureRuntimeDb($data);
 
-        // 4. Run database migrations
+        // 3. Run database migrations
         try {
             ini_set('max_execution_time', '300');
             ini_set('memory_limit', '512M');
@@ -226,7 +186,7 @@ class InstallController extends Controller
             ], 500);
         }
 
-        // 5. Create superadmin user and default workspace
+        // 4. Create superadmin user and default workspace
         try {
             $user = User::updateOrCreate(
                 ['email' => strtolower(trim($data['admin_email']))],
@@ -256,8 +216,11 @@ class InstallController extends Controller
             ], 500);
         }
 
-        // 6. Lock installer permanently
-        $this->licenseService->markInstalled();
+        // 5. Lock installer permanently
+        File::put(storage_path('installed'), json_encode([
+            'installed_at' => now()->toIso8601String(),
+            'version' => config('app.version', '1.0.0'),
+        ], JSON_PRETTY_PRINT));
 
         return response()->json([
             'success' => true,

@@ -2,20 +2,16 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\Licensing\LicenseService;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckInstallation
 {
-    public function __construct(private LicenseService $licenseService)
-    {
-    }
-
     public function handle(Request $request, Closure $next): Response
     {
-        $isInstalled = $this->licenseService->isInstalled();
+        $isInstalled = File::exists(storage_path('installed'));
         $isInstallRoute = $request->is('install') || $request->is('api/install*');
         $isUpRoute = $request->is('up');
 

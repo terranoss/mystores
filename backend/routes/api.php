@@ -20,7 +20,6 @@ Route::prefix('install')->group(function () {
     Route::get('/status', [InstallController::class, 'status']);
     Route::get('/preflight', [InstallController::class, 'preflight']);
     Route::post('/test-db', [InstallController::class, 'testDb'])->middleware('throttle:10,1');
-    Route::post('/activate-license', [InstallController::class, 'activateLicense'])->middleware('throttle:10,1');
     Route::post('/execute', [InstallController::class, 'execute'])->middleware('throttle:5,1');
 });
 

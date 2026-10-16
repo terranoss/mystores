@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -24,10 +24,6 @@ export default function InstallWizard() {
   const [preflightData, setPreflightData] = useState<PreflightResponse | null>(null);
   const [checkingPreflight, setCheckingPreflight] = useState<boolean>(true);
 
-  // Form states
-  const [licenseKey, setLicenseKey] = useState<string>('');
-  const [licenseVerified, setLicenseVerified] = useState<boolean>(false);
-
   // Database settings
   const [dbConnection, setDbConnection] = useState<string>('mysql');
   const [dbHost, setDbHost] = useState<string>('127.0.0.1');
@@ -46,21 +42,7 @@ export default function InstallWizard() {
   const [adminPassword, setAdminPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  // Check if already installed
-  useEffect(() => {
-    axios
-      .get('/api/install/status')
-      .then((res) => {
-        if (res.data?.installed) {
-          navigate('/login');
-        }
-      })
-      .catch(() => {});
-
-    runPreflight();
-  }, [navigate]);
-
-  const runPreflight = async () => {
+  const runPreflight = useCallback(async () => {
     setCheckingPreflight(true);
     setErrorMsg(null);
     try {
@@ -71,41 +53,40 @@ export default function InstallWizard() {
     } finally {
       setCheckingPreflight(false);
     }
-  };
+  }, []);
 
-  const handleActivateLicense = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
-    if (!licenseKey.trim()) {
-      setErrorMsg('Please enter your license key.');
-      return;
-    }
+  // Check if already installed
+  useEffect(() => {
+    let ignore = false;
 
-    setLoading(true);
-    try {
-      const res = await axios.post('/api/install/activate-license', {
-        license_key: licenseKey.trim(),
-        domain: window.location.hostname,
+    axios
+      .get('/api/install/status')
+      .then((res) => {
+        if (!ignore && res.data?.installed) {
+          navigate('/login');
+        }
+      })
+      .catch(() => {});
+
+    axios
+      .get<PreflightResponse>('/api/install/preflight')
+      .then((res) => {
+        if (!ignore) {
+          setPreflightData(res.data);
+          setCheckingPreflight(false);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setErrorMsg('Failed to run server preflight checks. Please verify your backend server is running.');
+          setCheckingPreflight(false);
+        }
       });
 
-      if (res.data?.success) {
-        setLicenseVerified(true);
-        setSuccessMsg(res.data.message || 'License successfully verified with Stacklane!');
-        setTimeout(() => {
-          setSuccessMsg(null);
-          setStep(3);
-        }, 1200);
-      } else {
-        setErrorMsg(res.data?.message || 'Activation failed.');
-      }
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setErrorMsg(error.response?.data?.message || 'Unable to verify license key with Stacklane.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      ignore = true;
+    };
+  }, [navigate]);
 
   const handleTestDatabase = async () => {
     setErrorMsg(null);
@@ -150,7 +131,6 @@ export default function InstallWizard() {
     setLoading(true);
     try {
       const res = await axios.post('/api/install/execute', {
-        license_key: licenseKey.trim(),
         db_connection: dbConnection,
         db_host: dbHost,
         db_port: dbPort,
@@ -166,7 +146,7 @@ export default function InstallWizard() {
       });
 
       if (res.data?.success) {
-        setStep(5);
+        setStep(4);
       } else {
         setErrorMsg(res.data?.message || 'Installation encountered an error.');
       }
@@ -203,13 +183,12 @@ export default function InstallWizard() {
         </div>
 
         {/* Stepper Progress */}
-        <div className="grid grid-cols-5 gap-2 mb-8">
+        <div className="grid grid-cols-4 gap-2 mb-8">
           {[
             { num: 1, title: 'Preflight' },
-            { num: 2, title: 'License' },
-            { num: 3, title: 'Database' },
-            { num: 4, title: 'Admin' },
-            { num: 5, title: 'Ready' },
+            { num: 2, title: 'Database' },
+            { num: 3, title: 'Admin' },
+            { num: 4, title: 'Ready' },
           ].map((s) => (
             <div
               key={s.num}
@@ -305,7 +284,7 @@ export default function InstallWizard() {
                       onClick={() => setStep(2)}
                       className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold shadow-lg shadow-indigo-600/25 transition"
                     >
-                      Continue to License &rarr;
+                      Continue to Database &rarr;
                     </button>
                   </div>
                 </div>
@@ -313,63 +292,8 @@ export default function InstallWizard() {
             </div>
           )}
 
-          {/* STEP 2: LICENSE ACTIVATION */}
+          {/* STEP 2: DATABASE CONFIGURATION */}
           {step === 2 && (
-            <form onSubmit={handleActivateLicense} className="space-y-6">
-              <div>
-                <h2 className="text-lg font-semibold text-white">License Key Activation</h2>
-                <p className="text-sm text-slate-400 mt-1">
-                  Enter your MyStore license key purchased from Stacklane to activate your installation.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-300">
-                  <span>License Key</span>
-                  {licenseVerified && <span className="text-emerald-400 font-medium normal-case">✓ Verified</span>}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="MSTR-XXXX-XXXX-XXXX"
-                  value={licenseKey}
-                  onChange={(e) => setLicenseKey(e.target.value.toUpperCase())}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-                />
-                <p className="text-xs text-slate-500">
-                  This key will be cryptographically bound to <span className="text-slate-300 font-mono">{window.location.hostname}</span>.
-                </p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-400 space-y-1">
-                <p className="font-semibold text-slate-300">Privacy Notice:</p>
-                <p>
-                  Activation occurs once over HTTPS with Stacklane. No background heartbeats or recurring tracking calls will be made during normal daily usage.
-                </p>
-              </div>
-
-              <div className="pt-4 flex justify-between items-center border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 text-sm font-medium transition"
-                >
-                  &larr; Back
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || !licenseKey.trim()}
-                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-semibold shadow-lg shadow-indigo-600/25 transition flex items-center gap-2"
-                >
-                  {loading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                  Verify & Activate
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* STEP 3: DATABASE CONFIGURATION */}
-          {step === 3 && (
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-semibold text-white">Database Configuration</h2>
@@ -510,7 +434,7 @@ export default function InstallWizard() {
               <div className="pt-4 flex justify-between items-center border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(1)}
                   className="px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 text-sm font-medium transition"
                 >
                   &larr; Back
@@ -518,7 +442,7 @@ export default function InstallWizard() {
                 <button
                   type="button"
                   disabled={!dbTested}
-                  onClick={() => setStep(4)}
+                  onClick={() => setStep(3)}
                   className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold shadow-lg shadow-indigo-600/25 transition"
                 >
                   Continue &rarr;
@@ -527,8 +451,8 @@ export default function InstallWizard() {
             </div>
           )}
 
-          {/* STEP 4: ADMIN & STORE SETUP */}
-          {step === 4 && (
+          {/* STEP 3: ADMIN & STORE SETUP */}
+          {step === 3 && (
             <form onSubmit={handleExecuteInstall} className="space-y-6">
               <div>
                 <h2 className="text-lg font-semibold text-white">Administrator & Store Setup</h2>
@@ -614,7 +538,7 @@ export default function InstallWizard() {
               <div className="pt-4 flex justify-between items-center border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={() => setStep(2)}
                   className="px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-slate-800 text-slate-300 text-sm font-medium transition"
                 >
                   &larr; Back
@@ -631,8 +555,8 @@ export default function InstallWizard() {
             </form>
           )}
 
-          {/* STEP 5: SUCCESS */}
-          {step === 5 && (
+          {/* STEP 4: SUCCESS */}
+          {step === 4 && (
             <div className="py-6 text-center space-y-6 animate-fadeIn">
               <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-3xl mx-auto shadow-xl shadow-emerald-500/10">
                 ✓
@@ -675,7 +599,7 @@ export default function InstallWizard() {
 
       {/* Footer */}
       <div className="text-center text-xs text-slate-500 mt-8">
-        &copy; {new Date().getFullYear()} MyStore. All rights reserved. Powered by Stacklane Licensing.
+        &copy; {new Date().getFullYear()} MyStore. Open-source self-hosted retail management.
       </div>
     </div>
   );
