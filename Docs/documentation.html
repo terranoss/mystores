@@ -571,6 +571,13 @@
           Go to <em>Settings &gt; Integrations &gt; Lazada</em>. Enter your <strong>App Key</strong> and <strong>App Secret</strong>. Set your authorized callback in Lazada Open Platform to:
         </p>
         <pre><code>https://your-domain.com/api/lazada/callback</code></pre>
+
+        <div style="margin-top: 18px; background: rgba(59, 130, 246, 0.08); border-left: 4px solid #3b82f6; padding: 12px 14px; border-radius: 4px;">
+          <strong style="color: #60a5fa; font-size: 13.5px;">⚠️ Critical Note on Callback URLs:</strong>
+          <p style="font-size: 13px; color: #cbd5e1; margin-top: 4px; line-height: 1.5;">
+            The callback URL configured in your developer console must <strong>match character-for-character</strong> with the actual website domain you use to log in (e.g., <code>https://mystores.yourdomain.com</code> vs <code>https://stores.yourdomain.com</code>). Even a slight mismatch will cause OAuth authentication to fail.
+          </p>
+        </div>
       </div>
     </div>
 
@@ -579,22 +586,47 @@
       <h2>Common FAQs & Troubleshooting</h2>
 
       <div class="card">
+        <h4 style="color:#f87171; margin-bottom: 6px;">Lazada: "Error Message: Missing parameter" during store connection</h4>
+        <p style="font-size: 13.5px; line-height: 1.5;">
+          This error is displayed on Lazada's portal (<code>api.lazada.com.my/oauth/authorize?response_type=code</code>) when Lazada strips the authorization parameters during login. To fix this:
+        </p>
+        <ul style="font-size: 13px; color: #94a3b8; margin-top: 6px; padding-left: 20px; line-height: 1.6;">
+          <li><strong>Check Callback URL:</strong> Verify that the <strong>Lazada Redirect URL</strong> in MyStores Settings matches the exact <strong>App Callback URL</strong> registered in your Lazada Open Platform console.</li>
+          <li><strong>Use Incognito/Private Window:</strong> If you are already logged into Lazada Seller Center in your browser, Lazada's session cookies can break the redirect parameters. Open an incognito window, log in to MyStores, and initiate the connection from there.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h4 style="color:#f87171; margin-bottom: 6px;">Shopee: "redirect_url is invalid" or "sign is invalid"</h4>
+        <p style="font-size: 13.5px; line-height: 1.5;">
+          Shopee signs the authorization request using HMAC-SHA256 with your partner key and registered redirect URL. Ensure:
+        </p>
+        <ul style="font-size: 13px; color: #94a3b8; margin-top: 6px; padding-left: 20px; line-height: 1.6;">
+          <li>Your Shopee Partner ID and Partner Key are entered accurately without extra whitespaces.</li>
+          <li>The redirect URL whitelisted in your Shopee Open Platform Console matches <code>https://your-domain.com/api/shopee/callback</code> identically.</li>
+        </ul>
+      </div>
+
+      <div class="card">
         <h4 style="color:#f87171; margin-bottom: 6px;">500 Internal Server Error after uploading</h4>
         <p style="font-size: 13.5px;">
           Ensure file permissions are correct. On cPanel, directories must be <code>755</code> and files <code>644</code>. Verify that <code>storage/</code> and <code>bootstrap/cache/</code> are writable by PHP.
-        </div>
+        </p>
+      </div>
 
       <div class="card">
         <h4 style="color:#f87171; margin-bottom: 6px;">Removing /public from URL</h4>
         <p style="font-size: 13.5px;">
           If your URLs require <code>/public/</code>, make sure Apache's <code>mod_rewrite</code> is enabled and your domain document root points directly to the web root folder.
-        </div>
+        </p>
+      </div>
 
       <div class="card">
         <h4 style="color:#f87171; margin-bottom: 6px;">How do I re-run the installer?</h4>
         <p style="font-size: 13.5px;">
           For security, the installer is permanently disabled once completed. If you need to reinstall from scratch, delete the <code>storage/installed</code> file and <code>.env</code> file.
-        </div>
+        </p>
+      </div>
     </div>
 
     <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: #64748b; text-align: center;">
