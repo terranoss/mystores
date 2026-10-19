@@ -33,10 +33,16 @@ android {
         applicationId = "com.melur.mystores"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Google Mobile Ads SDK requires minimum SDK 21 (Android 5.0)
+        minSdk = 21
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Google AdMob application ID placeholder defaulting to Google's published test app ID
+        val admobAppId = project.findProperty("admobAppId") as? String 
+            ?: "ca-app-pub-3940256099942544~3347511713"
+        manifestPlaceholders["admobAppId"] = admobAppId
     }
 
     signingConfigs {

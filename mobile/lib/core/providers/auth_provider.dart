@@ -7,6 +7,8 @@ import '../api/api_log.dart';
 import '../auth/auth_storage.dart';
 import '../auth/server_storage.dart';
 import '../models/dashboard.dart';
+import '../push/push_service.dart';
+import '../push/onesignal_push_service.dart';
 import '../widgets/home_screen_widget.dart';
 
 class AuthState {
@@ -58,7 +60,9 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(const AuthState()) {
+  final PushService? pushService;
+
+  AuthNotifier({this.pushService}) : super(const AuthState()) {
     _restoreSession();
   }
 
@@ -85,6 +89,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           storeName: storeName,
           storeUrl: storeUrl,
         );
+        _registerPushDevice();
         return;
       }
     } catch (_) {
@@ -108,6 +113,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  Future<void> _registerPushDevice() async {
+    if (pushService == null) return;
+    try {
+      final playerId = await pushService!.getPlayerId();
+      if (playerId == null || playerId.isEmpty) return;
+
+      final res = await apiClient.post(
+        ApiEndpoints.devices,
+        data: {'player_id': playerId},
+      );
+      final workspacePublicId = res.data['workspace_public_id'] as String?;
+      if (workspacePublicId != null && workspacePublicId.isNotEmpty) {
+        await pushService!.login(workspacePublicId);
+        ApiLog.add('push device registered: $playerId -> $workspacePublicId');
+      }
+    } catch (e) {
+      // Registration failures are logged and swallowed — never block entry to the app
+      ApiLog.add('push device registration failed (swallowed): $e');
+    }
+  }
+
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, clearError: true);
     final activeUrl = await ServerStorage.getStoreUrl() ?? 'unconnected';
@@ -124,6 +150,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await AuthStorage.saveUser(jsonEncode(user.toJson()));
       ApiLog.add('login OK for ${user.email} (id ${user.id})');
       state = state.copyWith(user: user, isLoading: false);
+      _registerPushDevice();
       return true;
     } catch (e) {
       final detail = _loginErrorDetail(e);
@@ -177,13 +204,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Involuntary local logout (e.g. 401 interceptor) — contractually local-only:
+  /// detaches local push identity, never calls DELETE /devices or POST /logout.
   Future<void> forceLocalLogout() async {
+    try {
+      await pushService?.logout();
+    } catch (_) {}
     await AuthStorage.clearAll();
     await HomeScreenWidget.clear();
     state = const AuthState(isInitializing: false);
   }
 
+  /// Explicit user logout:
+  /// 1. Calls DELETE /devices/:playerId while token is still valid.
+  /// 2. Calls POST /logout.
+  /// 3. Clears local session and calls pushService.logout().
   Future<void> logout() async {
+    if (pushService != null) {
+      try {
+        final playerId = await pushService!.getPlayerId();
+        if (playerId != null && playerId.isNotEmpty) {
+          await apiClient.delete(ApiEndpoints.device(playerId));
+        }
+      } catch (e) {
+        ApiLog.add('device unregister error (swallowed): $e');
+      }
+    }
     try {
       await apiClient.post(ApiEndpoints.logout);
     } catch (_) {}
@@ -196,5 +242,5 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
-  (ref) => AuthNotifier(),
+  (ref) => AuthNotifier(pushService: ref.watch(pushServiceProvider)),
 );

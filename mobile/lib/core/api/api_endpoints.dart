@@ -74,4 +74,8 @@ class ApiEndpoints {
   static const String workspaceInvites = '/workspace/invites';
   static const String workspaceInvitesAccept = '/workspace/invites/accept';
   static String workspaceMember(int id) => '/workspace/members/$id';
+
+  // Devices (push notifications)
+  static const String devices = '/devices';
+  static String device(String playerId) => '/devices/$playerId';
 }

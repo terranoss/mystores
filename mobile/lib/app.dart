@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'core/ads/ad_banner_widget.dart';
+import 'core/ads/interstitial_ad_manager.dart';
 import 'core/api/api_client.dart';
+import 'core/notifications/notification_routes.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/notification_provider.dart';
+import 'core/push/onesignal_push_service.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/store_connect_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -99,11 +104,41 @@ final _router = GoRouter(
   ],
 );
 
-class MyStoresApp extends ConsumerWidget {
+class MyStoresApp extends ConsumerStatefulWidget {
   const MyStoresApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyStoresApp> createState() => _MyStoresAppState();
+}
+
+class _MyStoresAppState extends ConsumerState<MyStoresApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Initialize push service during app startup
+      final pushService = ref.read(pushServiceProvider);
+      if (pushService is OneSignalPushService) {
+        pushService.onNotificationOpened = (data) {
+          final category = data['category'] as String?;
+          final kind = data['kind'] as String?;
+          final route = NotificationRouteResolver.resolveRoute(
+            category: category,
+            kind: kind,
+          );
+          if (route != null) {
+            _router.go(route);
+          }
+          // Refresh unread count on notification open
+          ref.read(notificationProvider.notifier).fetchUnreadCount();
+        };
+      }
+      pushService.initialize();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Re-evaluates router when session restoration finishes or auth changes
     ref.listen(authProvider, (previous, next) {
       if (previous?.isInitializing == true && !next.isInitializing) {
@@ -145,42 +180,53 @@ class _AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final index = _currentIndex(location);
+    final isDashboard = location == '/dashboard';
+
     return AppShellScope(
       scaffoldKey: _shellScaffoldKey,
       child: Scaffold(
         key: _shellScaffoldKey,
         drawer: const _AppDrawer(),
         body: child,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: index,
-          onDestinationSelected: (i) {
-            switch (i) {
-              case 0:
-                GoRouter.of(context).go('/dashboard');
-                break;
-              case 1:
-                GoRouter.of(context).go('/orders');
-                break;
-              case 2:
-                GoRouter.of(context).go('/stock');
-                break;
-            }
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Dashboard',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long_rounded),
-              label: 'Orders',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.inventory_2_outlined),
-              selectedIcon: Icon(Icons.inventory_2_rounded),
-              label: 'Stock',
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isDashboard) const AdBannerWidget(),
+            NavigationBar(
+              selectedIndex: index,
+              onDestinationSelected: (i) {
+                if (i != index) {
+                  InterstitialAdManager.instance.showIfAllowed();
+                }
+                switch (i) {
+                  case 0:
+                    GoRouter.of(context).go('/dashboard');
+                    break;
+                  case 1:
+                    GoRouter.of(context).go('/orders');
+                    break;
+                  case 2:
+                    GoRouter.of(context).go('/stock');
+                    break;
+                }
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home_rounded),
+                  label: 'Dashboard',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  selectedIcon: Icon(Icons.receipt_long_rounded),
+                  label: 'Orders',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.inventory_2_outlined),
+                  selectedIcon: Icon(Icons.inventory_2_rounded),
+                  label: 'Stock',
+                ),
+              ],
             ),
           ],
         ),

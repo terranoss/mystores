@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../ads/interstitial_ad_manager.dart';
 import '../api/api_client.dart';
 import '../api/api_endpoints.dart';
 import '../models/product.dart';
@@ -169,6 +170,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
           'mode': mode,
         },
       );
+      InterstitialAdManager.instance.suppressForRecentAction();
       return true;
     } catch (_) {
       return false;

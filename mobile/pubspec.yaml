@@ -48,6 +48,12 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.8
 
+  # Push notifications
+  onesignal_flutter: ^5.2.7
+
+  # Advertisements
+  google_mobile_ads: ^5.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

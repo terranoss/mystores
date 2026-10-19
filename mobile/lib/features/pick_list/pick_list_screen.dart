@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/ads/interstitial_ad_manager.dart';
 import '../../core/models/dashboard.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/dashboard_provider.dart';
@@ -103,6 +104,7 @@ class _PickListScreenState extends ConsumerState<PickListScreen> {
             item: item,
             photoPath: photo.path,
           );
+      InterstitialAdManager.instance.suppressForRecentAction();
       await _load();
     } catch (e) {
       _snack('Failed to save pick photo: $e', error: true);

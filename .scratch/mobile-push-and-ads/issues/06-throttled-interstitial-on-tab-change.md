@@ -4,14 +4,14 @@
 
 **Blocked by:** 05: Show a banner ad on the Dashboard
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] A full-screen advertisement can appear when the operator changes bottom navigation tab.
-- [ ] It appears at most once in any five minute window.
-- [ ] It never appears on app launch or on the first navigation of a session.
-- [ ] It does not appear when the navigation was initiated by tapping a push notification.
-- [ ] It does not appear immediately after capturing a pick-list photo.
-- [ ] It does not appear immediately after confirming a stock or price edit.
-- [ ] Loading and failure states are handled without throwing and without blocking navigation — the tab change always completes.
-- [ ] It reuses the advertisement configuration and test/live switching established by the banner ticket rather than introducing a second copy.
-- [ ] Live advertisement units are used only when the same explicit build flag is set.
+- [x] A full-screen advertisement can appear when the operator changes bottom navigation tab.
+- [x] It appears at most once in any five minute window.
+- [x] It never appears on app launch or on the first navigation of a session.
+- [x] It does not appear when the navigation was initiated by tapping a push notification.
+- [x] It does not appear immediately after capturing a pick-list photo.
+- [x] It does not appear immediately after confirming a stock or price edit.
+- [x] Loading and failure states are handled without throwing and without blocking navigation — the tab change always completes.
+- [x] It reuses the advertisement configuration and test/live switching established by the banner ticket rather than introducing a second copy.
+- [x] Live advertisement units are used only when the same explicit build flag is set.
