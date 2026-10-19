@@ -4,16 +4,16 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] A banner ad renders above the Dashboard's bottom navigation.
-- [ ] No ad renders on the Orders, Stock, pick-list, or Team screens.
-- [ ] On an ad failing to load, the reserved height is preserved and a thin divider marks the space as intentional.
-- [ ] The Dashboard content does not reflow when an ad fails to load.
-- [ ] Debug and ordinary builds use Google's published test advertisement units.
-- [ ] Live advertisement units are used only when an explicit build flag is set at build time.
-- [ ] The advertisement application identifier is supplied at build time, defaulting to Google's test value; it is not hardcoded.
-- [ ] No credential is committed to the repository.
-- [ ] The Android minimum supported version is raised as far as the advertisement SDK requires and no further.
-- [ ] That minimum-version change is written down in the mobile app's README, with the reason.
-- [ ] The existing launcher-icon minimum-version setting is aligned with the new value.
+- [x] A banner ad renders above the Dashboard's bottom navigation.
+- [x] No ad renders on the Orders, Stock, pick-list, or Team screens.
+- [x] On an ad failing to load, the reserved height is preserved and a thin divider marks the space as intentional.
+- [x] The Dashboard content does not reflow when an ad fails to load.
+- [x] Debug and ordinary builds use Google's published test advertisement units.
+- [x] Live advertisement units are used only when an explicit build flag is set at build time.
+- [x] The advertisement application identifier is supplied at build time, defaulting to Google's test value; it is not hardcoded.
+- [x] No credential is committed to the repository.
+- [x] The Android minimum supported version is raised as far as the advertisement SDK requires and no further.
+- [x] That minimum-version change is written down in the mobile app's README, with the reason.
+- [x] The existing launcher-icon minimum-version setting is aligned with the new value.

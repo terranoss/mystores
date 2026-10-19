@@ -4,13 +4,13 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The category-to-route mapping has exactly one implementation in the app.
-- [ ] Order notifications (new, status, urgent) still open the Orders screen.
-- [ ] Pick-list comment notifications still open the correct pick-list screen, distinguished by the message's `kind`.
-- [ ] Team activity notifications still open the Team screen.
-- [ ] Store reauthorization notifications still open the Dashboard.
-- [ ] A notification with an unrecognised category navigates to no screen and throws nothing.
-- [ ] Marking a tapped notification read still happens on tap, unchanged.
-- [ ] The inbox renders identically to before this change — same icons, same category colours.
+- [x] The category-to-route mapping has exactly one implementation in the app.
+- [x] Order notifications (new, status, urgent) still open the Orders screen.
+- [x] Pick-list comment notifications still open the correct pick-list screen, distinguished by the message's `kind`.
+- [x] Team activity notifications still open the Team screen.
+- [x] Store reauthorization notifications still open the Dashboard.
+- [x] A notification with an unrecognised category navigates to no screen and throws nothing.
+- [x] Marking a tapped notification read still happens on tap, unchanged.
+- [x] The inbox renders identically to before this change — same icons, same category colours.
