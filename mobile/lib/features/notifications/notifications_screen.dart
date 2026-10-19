@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/notifications/notification_routes.dart';
 import '../../core/providers/notification_provider.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/error_retry.dart';
@@ -135,22 +136,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                         .read(notificationProvider.notifier)
                                         .markAsRead(n.id);
                                   }
-                                  final category = n.data.category;
-                                  if (category == 'order_new' ||
-                                      category == 'order_status' ||
-                                      category == 'order_urgent') {
-                                    context.go('/orders');
-                                  } else if (category == 'picklist_comment') {
-                                    final kind = n.data.kind;
-                                    context.go(
-                                      kind == 'pending'
-                                          ? '/pick-list/pending'
-                                          : '/pick-list/today',
-                                    );
-                                  } else if (category == 'team_activity') {
-                                    context.go('/team');
-                                  } else if (category == 'store_reauth') {
-                                    context.go('/dashboard');
+                                  final route = NotificationRouteResolver.resolveRoute(
+                                    category: n.data.category,
+                                    kind: n.data.kind,
+                                  );
+                                  if (route != null) {
+                                    context.go(route);
                                   }
                                 },
                               ),
