@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DeviceRegistrationController;
 use App\Http\Controllers\Api\LazadaAuthController;
 use App\Http\Controllers\Api\LazadaOrderController;
 use App\Http\Controllers\Api\OrderController;
@@ -44,6 +45,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:change-password');
+
+    // Devices (push notification registration)
+    Route::post('/devices', [DeviceRegistrationController::class, 'register'])->middleware('throttle:mutation');
+    Route::delete('/devices/{playerId}', [DeviceRegistrationController::class, 'unregister'])->middleware('throttle:mutation');
     // Notifications
     Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);

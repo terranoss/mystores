@@ -11,7 +11,24 @@ class Workspace extends Model
     protected $fillable = [
         'name',
         'owner_user_id',
+        'public_id',
     ];
+
+    private static ?bool $hasPublicIdColumn = null;
+
+    protected static function booted(): void
+    {
+        static::creating(function (Workspace $workspace) {
+            if (empty($workspace->public_id)) {
+                if (static::$hasPublicIdColumn === null) {
+                    static::$hasPublicIdColumn = \Illuminate\Support\Facades\Schema::hasColumn('workspaces', 'public_id');
+                }
+                if (static::$hasPublicIdColumn) {
+                    $workspace->public_id = (string) \Illuminate\Support\Str::uuid();
+                }
+            }
+        });
+    }
 
     public function owner(): BelongsTo
     {
