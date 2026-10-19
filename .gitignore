@@ -31,8 +31,6 @@ graphify-out/
 dist_release/
 release_artifacts/
 
-# Local issue tracker (see docs/agents/issue-tracker.md)
-.scratch/
 
 
 # Local SSH trust store for stacklane deploy scripts (see scripts/stacklane_ssh.py)
