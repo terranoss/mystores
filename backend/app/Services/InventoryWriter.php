@@ -286,7 +286,7 @@ class InventoryWriter
 
     /**
      * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $list
-     * @return array<int, int>
+     * @return array<int, int|float>
      */
     private function valuesByModel(?array $list, string $dimension): array
     {

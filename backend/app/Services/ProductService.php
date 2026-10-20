@@ -291,7 +291,7 @@ class ProductService
         }
 
         if ($store->platform === 'lazada') {
-            return $this->updateLazadaProduct($product, $stockList, null, $source);
+            return $this->updateLazadaProduct($product, $stockList, null, $source, $recordAudit);
         }
 
         $this->gateway->pushStock($store, $product, $stockList);
@@ -345,36 +345,55 @@ class ProductService
         }
 
         $product = $this->getProduct($user, $id);
+        $store = $product->store;
 
-        if ($product->store->platform === 'lazada') {
+        if ($store->platform === 'lazada') {
             return $this->updateLazadaProduct($product, $stockList, $priceList, 'user');
         }
 
+        if (!$store->token || !$store->is_active) {
+            throw new StoreNotActiveException();
+        }
+
         if ($stockList) {
-            $product = $this->updateStock($user, $id, $stockList);
+            $this->gateway->pushStock($store, $product, $stockList);
         }
 
         if ($priceList) {
             try {
-                $product = $this->updatePrice($user, $id, $priceList);
+                $this->gateway->pushPrice($store, $product, $priceList);
             } catch (\Exception $e) {
                 if ($stockList) {
+                    // The stock push was accepted, so record it before surfacing
+                    // the price failure.
+                    $this->inventoryWriter->apply($product, $stockList, null, 'user');
+
                     throw new \Exception("Stock was updated successfully, but price update failed: " . $e->getMessage());
                 }
+
                 throw $e;
             }
         }
 
-        return $product;
+        // One call mutates stock and price together, so it records one row.
+        $this->inventoryWriter->apply($product, $stockList, $priceList, 'user');
+
+        return $product->fresh()->load('variants');
     }
 
     /**
      * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $stockList
      * @param  list<array{model_id?:int,original_price?:float|int|string}>|null  $priceList
      */
-    private function updateLazadaProduct(Product $product, ?array $stockList, ?array $priceList, string $source = 'user'): Product
-    {
+    private function updateLazadaProduct(
+        Product $product,
+        ?array $stockList,
+        ?array $priceList,
+        string $source = 'user',
+        bool $recordAudit = true,
+    ): Product {
         $store = $product->store;
+
         if (!$store->token || !$store->is_active) {
             throw new StoreNotActiveException();
         }
@@ -384,7 +403,7 @@ class ProductService
         $skuUpdates = $this->lazada->buildPriceQuantitySkuUpdates($product, $stockList, $priceList);
         $this->gateway->pushSkuUpdates($store, $skuUpdates);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $skuUpdates, $source) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $skuUpdates, $source, $recordAudit) {
             $productData = [];
             $logs = [];
 
@@ -413,16 +432,18 @@ class ProductService
                         }
                         if ($changes !== []) {
                             $variant->update($changes);
-                            $logs[] = $this->inventoryWriter->begin(
-                                $product,
-                                $variant->id,
-                                $variant->model_sku,
-                                $newStock !== null ? (float) $oldStock : null,
-                                $newStock !== null ? (float) $newStock : null,
-                                $newPrice !== null ? (float) $oldPrice : null,
-                                $newPrice,
-                                $source
-                            );
+                            if ($recordAudit) {
+                                $logs[] = $this->inventoryWriter->begin(
+                                    $product,
+                                    $variant->id,
+                                    $variant->model_sku,
+                                    $newStock !== null ? (float) $oldStock : null,
+                                    $newStock !== null ? (float) $newStock : null,
+                                    $newPrice !== null ? (float) $oldPrice : null,
+                                    $newPrice,
+                                    $source
+                                );
+                            }
                         }
                     }
 
@@ -443,7 +464,7 @@ class ProductService
                     $productData['price'] = $newPrice;
                 }
 
-                if ($newStock !== null || $newPrice !== null) {
+                if ($recordAudit && ($newStock !== null || $newPrice !== null)) {
                     $logs[] = $this->inventoryWriter->begin(
                         $product,
                         null,
@@ -906,20 +927,41 @@ class ProductService
                 continue;
             }
             try {
+                $existing = Product::where('store_id', $store->id)->where('item_id', $itemId)->first();
+                $oldStock = $existing !== null ? (int) $existing->stock : null;
+                $oldPrice = $existing !== null ? (float) $existing->price : null;
+
+                $newStock = ShopeeResponseHelper::extractStock($itemData);
+                $newPrice = ShopeeResponseHelper::extractPrice($itemData);
+
                 $product = Product::updateOrCreate(
                     ['store_id' => $store->id, 'item_id' => $itemId],
                     [
                         'item_name' => $itemData['item_name'] ?? null,
                         'item_sku' => $itemData['item_sku'] ?? null,
                         'category_id' => $itemData['category_id'] ?? null,
-                        'price' => ShopeeResponseHelper::extractPrice($itemData),
-                        'stock' => ShopeeResponseHelper::extractStock($itemData),
+                        'price' => $newPrice,
+                        'stock' => $newStock,
                         'has_variants' => ShopeeResponseHelper::extractHasVariants($itemData),
                         'raw_response' => $itemData,
                         'synced_at' => now(),
                         'needs_push' => false,
                     ]
                 );
+
+                if ($existing !== null && ! $product->has_variants
+                    && ($oldStock !== $newStock || $oldPrice !== $newPrice)) {
+                    $this->inventoryWriter->recordChange(
+                        $product,
+                        null,
+                        $oldStock,
+                        $newStock,
+                        $oldPrice,
+                        $newPrice,
+                        'sync',
+                    );
+                }
+
                 if ($product->has_variants) {
                     try {
                         $this->paceApiCall(80000);
@@ -932,16 +974,38 @@ class ProductService
                             if (! $modelId) {
                                 continue;
                             }
-                            ProductVariant::updateOrCreate(
+
+                            $existingVariant = ProductVariant::where('product_id', $product->id)
+                                ->where('model_id', $modelId)
+                                ->first();
+                            $oldVariantStock = $existingVariant !== null ? (int) $existingVariant->stock : null;
+                            $oldVariantPrice = $existingVariant !== null ? (float) $existingVariant->price : null;
+                            $newVariantStock = ShopeeResponseHelper::extractModelStock($model);
+                            $newVariantPrice = ShopeeResponseHelper::extractModelPrice($model);
+
+                            $variant = ProductVariant::updateOrCreate(
                                 ['product_id' => $product->id, 'model_id' => $modelId],
                                 [
                                     'name' => $model['model_name'] ?? null,
                                     'model_sku' => $model['model_sku'] ?? $model['sku'] ?? null,
-                                    'price' => ShopeeResponseHelper::extractModelPrice($model),
-                                    'stock' => ShopeeResponseHelper::extractModelStock($model),
+                                    'price' => $newVariantPrice,
+                                    'stock' => $newVariantStock,
                                     'raw_response' => $model,
                                 ]
                             );
+
+                            if ($existingVariant !== null
+                                && ($oldVariantStock !== $newVariantStock || $oldVariantPrice !== $newVariantPrice)) {
+                                $this->inventoryWriter->recordChange(
+                                    $product,
+                                    $variant,
+                                    $oldVariantStock,
+                                    $newVariantStock,
+                                    $oldVariantPrice,
+                                    $newVariantPrice,
+                                    'sync',
+                                );
+                            }
                         }
                     } catch (\Exception $e) {
                         if ($this->isUnrecoverable($e)) {
@@ -1047,6 +1111,10 @@ class ProductService
                 $price = (float) ($firstSku['price'] ?? 0);
                 $stock = (int) ($firstSku['quantity'] ?? 0);
 
+                $existing = Product::where('store_id', $store->id)->where('item_id', $itemId)->first();
+                $oldStock = $existing !== null ? (int) $existing->stock : null;
+                $oldPrice = $existing !== null ? (float) $existing->price : null;
+
                 $product = Product::updateOrCreate(
                     ['store_id' => $store->id, 'item_id' => $itemId],
                     [
@@ -1062,6 +1130,18 @@ class ProductService
                     ]
                 );
 
+                if ($existing !== null && ! $hasVariants && ($oldStock !== $stock || $oldPrice !== $price)) {
+                    $this->inventoryWriter->recordChange(
+                        $product,
+                        null,
+                        $oldStock,
+                        $stock,
+                        $oldPrice,
+                        $price,
+                        'sync',
+                    );
+                }
+
                 if ($hasVariants) {
                     $totalStock = 0;
                     foreach ($skus as $skuData) {
@@ -1073,7 +1153,13 @@ class ProductService
                         $variantPrice = (float) ($skuData['price'] ?? 0);
                         $variantName = $skuData['color_family'] ?? $skuData['size'] ?? $skuData['package_content'] ?? $skuData['SellerSku'] ?? "SKU #{$skuId}";
 
-                        ProductVariant::updateOrCreate(
+                        $existingVariant = ProductVariant::where('product_id', $product->id)
+                            ->where('model_id', $skuId)
+                            ->first();
+                        $oldVariantStock = $existingVariant !== null ? (int) $existingVariant->stock : null;
+                        $oldVariantPrice = $existingVariant !== null ? (float) $existingVariant->price : null;
+
+                        $variant = ProductVariant::updateOrCreate(
                             ['product_id' => $product->id, 'model_id' => $skuId],
                             [
                                 'name' => $variantName,
@@ -1083,6 +1169,20 @@ class ProductService
                                 'raw_response' => $skuData,
                             ]
                         );
+
+                        if ($existingVariant !== null
+                            && ($oldVariantStock !== $variantStock || $oldVariantPrice !== $variantPrice)) {
+                            $this->inventoryWriter->recordChange(
+                                $product,
+                                $variant,
+                                $oldVariantStock,
+                                $variantStock,
+                                $oldVariantPrice,
+                                $variantPrice,
+                                'sync',
+                            );
+                        }
+
                         $totalStock += $variantStock;
                     }
 

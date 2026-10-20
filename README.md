@@ -330,7 +330,6 @@ mystores/
 │   │   ├── Jobs/
 │   │   │   ├── SyncShopeeStoreJob.php             # Background store sync
 │   │   │   ├── SyncShopeeOrderJob.php             # Background order sync
-│   │   │   ├── UpdateShopeePriceJob.php           # Price update job
 │   │   │   └── UpdateShopeeStockJob.php           # Stock update + linked sync
 │   │   ├── Models/
 │   │   │   ├── InventoryLog.php                   # Stock change audit trail
@@ -398,7 +397,6 @@ mystores/
 │       │   ├── Dashboard.tsx                      # Main dashboard
 │       │   ├── Login.tsx / Register.tsx           # Auth forms
 │       │   ├── Orders.tsx                         # Unified order list
-│       │   ├── ShopeeOrdersPanel.tsx / LazadaOrdersPanel.tsx
 │       │   ├── UnifiedOrdersPanel.tsx
 │       │   ├── Stock.tsx                          # Product stock/price editing
 │       │   ├── Promotions.tsx                     # Promotion management

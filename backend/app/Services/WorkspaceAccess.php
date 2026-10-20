@@ -95,6 +95,14 @@ class WorkspaceAccess
             ->all();
     }
 
+    /**
+     * Constrain a Product query to stores in the given workspace.
+     */
+    public function scopeProductsToWorkspace($query, int $workspaceId): void
+    {
+        $query->whereHas('store', fn ($store) => $store->where('workspace_id', $workspaceId));
+    }
+
     public function canAccessStore(User $user, ShopeeStore $store): bool
     {
         if ($store->workspace_id === null) {

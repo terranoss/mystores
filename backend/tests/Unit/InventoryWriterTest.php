@@ -8,12 +8,21 @@ use App\Models\ProductVariant;
 use App\Models\ShopeeStore;
 use App\Models\User;
 use App\Services\InventoryWriter;
+use App\Services\WorkspaceAccess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 
 class InventoryWriterTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+
+        parent::tearDown();
+    }
 
     private function makeProduct(array $overrides = [], bool $withVariants = false): Product
     {
@@ -300,5 +309,23 @@ class InventoryWriterTest extends TestCase
 
         $this->assertTrue($restored->fresh()->needs_push);
         $this->assertFalse($untouched->fresh()->needs_push);
+    }
+
+    public function test_fail_scopes_the_needs_push_restore_to_the_logs_workspace(): void
+    {
+        $product = $this->makeProduct(['item_sku' => 'WRITER-SCOPED']);
+        $workspaceId = (int) $product->store->workspace_id;
+
+        $workspaceAccess = Mockery::mock(WorkspaceAccess::class);
+        $workspaceAccess->shouldReceive('scopeProductsToWorkspace')
+            ->once()
+            ->with(Mockery::type(\Illuminate\Database\Eloquent\Builder::class), $workspaceId);
+
+        $writer = new InventoryWriter($workspaceAccess);
+        $log = $writer->begin($product, null, 'WRITER-SCOPED', 10, 18, null, null, 'user');
+
+        $writer->fail($log, 'push failed', true);
+
+        $this->assertTrue($product->fresh()->needs_push);
     }
 }
