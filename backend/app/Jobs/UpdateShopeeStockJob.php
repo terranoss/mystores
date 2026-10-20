@@ -5,13 +5,13 @@ namespace App\Jobs;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
+use App\Services\InventoryWriter;
 use App\Services\ProductService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use App\Models\InventoryLog;
 use Illuminate\Support\Facades\Log;
 
 class UpdateShopeeStockJob implements ShouldQueue
@@ -25,19 +25,19 @@ class UpdateShopeeStockJob implements ShouldQueue
         protected string $source = 'user'
     ) {}
 
-    public function handle(ProductService $productService): void
+    public function handle(ProductService $productService, InventoryWriter $inventoryWriter): void
     {
         $product = Product::find($this->productId);
         if (!$product) {
             return;
         }
 
-        // Create log entries for tracking
-        $logIds = [];
+        // Open one pending row per stock entry before the marketplace call.
+        $logs = [];
         foreach ($this->stockList as $entry) {
             $modelId = $entry['model_id'] ?? null;
             $newStock = $entry['seller_stock'][0]['stock'] ?? 0;
-            $oldStock = 0;
+            $oldStock = $product->stock;
             $variantId = null;
             $sku = $product->item_sku;
 
@@ -50,30 +50,27 @@ class UpdateShopeeStockJob implements ShouldQueue
                     $variantId = $variant->id;
                     $sku = $variant->model_sku;
                 }
-            } else {
-                $oldStock = $product->stock;
             }
 
-            $log = \App\Models\InventoryLog::create([
-                'product_id' => $product->id,
-                'product_variant_id' => $variantId,
-                'sku' => $sku,
-                'old_stock' => $oldStock,
-                'new_stock' => $newStock,
-                'source' => $this->source,
-                'status' => 'pending',
-            ]);
-
-            $logIds[] = $log->id;
+            $logs[] = $inventoryWriter->begin(
+                $product,
+                $variantId,
+                $sku,
+                (float) $oldStock,
+                (float) $newStock,
+                null,
+                null,
+                $this->source,
+            );
         }
 
         try {
-            $productService->updateStock($this->user, $this->productId, $this->stockList);
+            // The writer applies the local change; this job owns the audit rows.
+            $productService->updateStock($this->user, $this->productId, $this->stockList, $this->source, false);
 
-            // Update logs to success
-            \App\Models\InventoryLog::whereIn('id', $logIds)->update([
-                'status' => 'success',
-            ]);
+            foreach ($logs as $log) {
+                $inventoryWriter->succeed($log);
+            }
 
             // Trigger SKU-based cross-store sync if this is not a linked sync
             if ($this->source !== 'linked_sync') {
@@ -100,14 +97,10 @@ class UpdateShopeeStockJob implements ShouldQueue
         } catch (\Exception $e) {
             Log::error("UpdateShopeeStockJob failed: " . $e->getMessage());
 
-            // Update logs to failed
-            \App\Models\InventoryLog::whereIn('id', $logIds)->update([
-                'status' => 'failed',
-                'error_message' => $e->getMessage(),
-            ]);
-
-            // Push was accepted optimistically; restore dirty flag so UI shows * again.
-            $product->update(['needs_push' => true]);
+            foreach ($logs as $log) {
+                // Push was accepted optimistically; restore dirty flag so UI shows * again.
+                $inventoryWriter->fail($log, $e->getMessage(), true);
+            }
 
             throw $e;
         }

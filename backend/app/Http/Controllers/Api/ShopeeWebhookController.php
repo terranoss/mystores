@@ -7,6 +7,7 @@ use App\Jobs\SyncShopeeOrderJob;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ShopeeStore;
+use App\Services\InventoryWriter;
 use App\Services\ProductService;
 use App\Services\WorkspaceConfig;
 use Illuminate\Http\Request;
@@ -16,11 +17,15 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeWebhookController extends Controller
 {
+    protected InventoryWriter $inventoryWriter;
+
     public function __construct(
         protected ProductService $productService,
         protected ?WorkspaceConfig $workspaceConfig = null,
+        ?InventoryWriter $inventoryWriter = null,
     ) {
         $this->workspaceConfig = $workspaceConfig ?? app(WorkspaceConfig::class);
+        $this->inventoryWriter = $inventoryWriter ?? app(InventoryWriter::class);
     }
 
     public function handle(Request $request): Response
@@ -134,17 +139,29 @@ class ShopeeWebhookController extends Controller
         }
 
         $sku = null;
+        $stockList = null;
         if ($modelId) {
             $variant = ProductVariant::where('product_id', $product->id)
                 ->where('model_id', $modelId)
                 ->first();
             if ($variant) {
-                $variant->update(['stock' => $newStock]);
                 $sku = $variant->model_sku;
+                $stockList = [
+                    [
+                        'model_id' => (int) $variant->model_id,
+                        'seller_stock' => [['stock' => (int) $newStock]],
+                    ],
+                ];
             }
         } else {
-            $product->update(['stock' => $newStock]);
             $sku = $product->item_sku;
+            $stockList = [
+                ['seller_stock' => [['stock' => (int) $newStock]]],
+            ];
+        }
+
+        if ($stockList !== null) {
+            $this->inventoryWriter->apply($product, $stockList, null, 'order_webhook');
         }
 
         if ($sku) {

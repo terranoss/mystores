@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\InventoryLog;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ShopeeStore;
@@ -18,14 +17,17 @@ class ProductService
 {
     private readonly LazadaService $lazada;
     private readonly WorkspaceAccess $workspaceAccess;
+    private readonly InventoryWriter $inventoryWriter;
 
     public function __construct(
         private readonly ShopeeService $shopee,
         ?LazadaService $lazada = null,
         ?WorkspaceAccess $workspaceAccess = null,
+        ?InventoryWriter $inventoryWriter = null,
     ) {
         $this->lazada = $lazada ?? app(LazadaService::class);
         $this->workspaceAccess = $workspaceAccess ?? app(WorkspaceAccess::class);
+        $this->inventoryWriter = $inventoryWriter ?? app(InventoryWriter::class);
     }
 
     /**
@@ -270,8 +272,10 @@ class ProductService
 
     /**
      * Update stock for a product (and optionally its variants) via the store marketplace API.
+     *
+     * @param  bool  $recordAudit  false when a queued job owns the inventory log lifecycle
      */
-    public function updateStock(User $user, int $id, array $stockList): Product
+    public function updateStock(User $user, int $id, array $stockList, string $source = 'user', bool $recordAudit = true): Product
     {
         $product = $this->getProduct($user, $id);
         $store = $product->store;
@@ -281,7 +285,7 @@ class ProductService
         }
 
         if ($store->platform === 'lazada') {
-            return $this->updateLazadaProduct($product, $stockList, null);
+            return $this->updateLazadaProduct($product, $stockList, null, $source);
         }
 
         // Explicitly cast parameters to correct types to prevent Go unmarshaling errors in Shopee API
@@ -315,30 +319,8 @@ class ProductService
             throw new \Exception("Shopee API Error: " . ($response['message'] ?? $response['error']));
         }
 
-        // Update local DB after successful API call
-        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $stockList) {
-            if ($product->has_variants) {
-                foreach ($stockList as $entry) {
-                    if (isset($entry['model_id'])) {
-                        ProductVariant::where('product_id', $product->id)
-                            ->where('model_id', $entry['model_id'])
-                            ->update([
-                                'stock' => $entry['seller_stock'][0]['stock'] ?? 0,
-                            ]);
-                    }
-                }
-                $product->update([
-                    'synced_at' => now(),
-                    'needs_push' => false,
-                ]);
-            } else {
-                $product->update([
-                    'stock' => $stockList[0]['seller_stock'][0]['stock'] ?? 0,
-                    'synced_at' => now(),
-                    'needs_push' => false,
-                ]);
-            }
-        });
+        // Apply the change locally and record one audit row for it.
+        $this->inventoryWriter->apply($product, $stockList, null, $source, $recordAudit);
 
         return $product->fresh()->load('variants');
     }
@@ -386,30 +368,8 @@ class ProductService
             throw new \Exception("Shopee API Error: " . ($response['message'] ?? $response['error']));
         }
 
-        // Update local DB after successful API call
-        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $priceList) {
-            if ($product->has_variants) {
-                foreach ($priceList as $entry) {
-                    if (isset($entry['model_id'])) {
-                        ProductVariant::where('product_id', $product->id)
-                            ->where('model_id', $entry['model_id'])
-                            ->update([
-                                'price' => $entry['original_price'] ?? 0,
-                            ]);
-                    }
-                }
-                $product->update([
-                    'synced_at' => now(),
-                    'needs_push' => false,
-                ]);
-            } else {
-                $product->update([
-                    'price' => $priceList[0]['original_price'] ?? 0,
-                    'synced_at' => now(),
-                    'needs_push' => false,
-                ]);
-            }
-        });
+        // Apply the change locally and record one audit row for it.
+        $this->inventoryWriter->apply($product, null, $priceList, 'user');
 
         return $product->fresh()->load('variants');
     }
@@ -426,13 +386,16 @@ class ProductService
         string $mode = 'push',
     ): Product {
         if ($mode === 'local') {
-            return $this->applyLocalStockAndPrice($user, $id, $stockList, $priceList);
+            $product = $this->getProduct($user, $id);
+            $this->inventoryWriter->apply($product, $stockList, $priceList, 'local_staged');
+
+            return $product->fresh()->load(['variants', 'store']);
         }
 
         $product = $this->getProduct($user, $id);
 
         if ($product->store->platform === 'lazada') {
-            return $this->updateLazadaProduct($product, $stockList, $priceList);
+            return $this->updateLazadaProduct($product, $stockList, $priceList, 'user');
         }
 
         if ($stockList) {
@@ -454,173 +417,10 @@ class ProductService
     }
 
     /**
-     * Persist stock/price locally and mark the product as needing marketplace push.
-     *
      * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $stockList
      * @param  list<array{model_id?:int,original_price?:float|int|string}>|null  $priceList
      */
-    public function applyLocalStockAndPrice(
-        User $user,
-        int $id,
-        ?array $stockList = null,
-        ?array $priceList = null,
-    ): Product {
-        $product = $this->getProduct($user, $id);
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $stockList, $priceList) {
-            if ($stockList) {
-                $hasModelIds = collect($stockList)->contains(fn ($entry) => isset($entry['model_id']));
-                if ($product->has_variants && $hasModelIds) {
-                    foreach ($stockList as $entry) {
-                        if (!isset($entry['model_id'])) {
-                            continue;
-                        }
-                        $variant = ProductVariant::where('product_id', $product->id)
-                            ->where('model_id', $entry['model_id'])
-                            ->first();
-
-                        $newStock = (int) ($entry['seller_stock'][0]['stock'] ?? 0);
-                        if ($variant) {
-                            $oldStock = $variant->stock;
-                            $variant->update(['stock' => $newStock]);
-                            $this->recordInventoryLog(
-                                $product,
-                                $variant->id,
-                                $variant->model_sku,
-                                $oldStock,
-                                $newStock,
-                                null,
-                                null,
-                                'local_staged',
-                                'success'
-                            );
-                        }
-                    }
-                    $sum = (int) ProductVariant::where('product_id', $product->id)->sum('stock');
-                    $product->update(['stock' => $sum, 'needs_push' => true]);
-                } elseif ($product->has_variants) {
-                    $newStock = (int) ($stockList[0]['seller_stock'][0]['stock'] ?? 0);
-                    $variants = ProductVariant::where('product_id', $product->id)->get();
-                    foreach ($variants as $variant) {
-                        $oldStock = $variant->stock;
-                        $variant->update(['stock' => $newStock]);
-                        $this->recordInventoryLog(
-                            $product,
-                            $variant->id,
-                            $variant->model_sku,
-                            $oldStock,
-                            $newStock,
-                            null,
-                            null,
-                            'local_staged',
-                            'success'
-                        );
-                    }
-                    $count = max(1, $variants->count());
-                    $product->update(['stock' => $newStock * $count, 'needs_push' => true]);
-                } else {
-                    $oldStock = $product->stock;
-                    $newStock = (int) ($stockList[0]['seller_stock'][0]['stock'] ?? 0);
-                    $product->update([
-                        'stock' => $newStock,
-                        'needs_push' => true,
-                    ]);
-                    $this->recordInventoryLog(
-                        $product,
-                        null,
-                        $product->item_sku,
-                        $oldStock,
-                        $newStock,
-                        null,
-                        null,
-                        'local_staged',
-                        'success'
-                    );
-                }
-            }
-
-            if ($priceList) {
-                $hasModelIds = collect($priceList)->contains(fn ($entry) => isset($entry['model_id']));
-                if ($product->has_variants && $hasModelIds) {
-                    foreach ($priceList as $entry) {
-                        if (!isset($entry['model_id'])) {
-                            continue;
-                        }
-                        $variant = ProductVariant::where('product_id', $product->id)
-                            ->where('model_id', $entry['model_id'])
-                            ->first();
-
-                        $newPrice = (float) ($entry['original_price'] ?? 0);
-                        if ($variant) {
-                            $oldPrice = $variant->price;
-                            $variant->update(['price' => $newPrice]);
-                            $this->recordInventoryLog(
-                                $product,
-                                $variant->id,
-                                $variant->model_sku,
-                                null,
-                                null,
-                                $oldPrice,
-                                $newPrice,
-                                'local_staged',
-                                'success'
-                            );
-                        }
-                    }
-                    $minPrice = ProductVariant::where('product_id', $product->id)->min('price');
-                    $product->update([
-                        'price' => $minPrice !== null ? (float) $minPrice : $product->price,
-                        'needs_push' => true,
-                    ]);
-                } elseif ($product->has_variants) {
-                    $newPrice = (float) ($priceList[0]['original_price'] ?? 0);
-                    $variants = ProductVariant::where('product_id', $product->id)->get();
-                    foreach ($variants as $variant) {
-                        $oldPrice = $variant->price;
-                        $variant->update(['price' => $newPrice]);
-                        $this->recordInventoryLog(
-                            $product,
-                            $variant->id,
-                            $variant->model_sku,
-                            null,
-                            null,
-                            $oldPrice,
-                            $newPrice,
-                            'local_staged',
-                            'success'
-                        );
-                    }
-                    $product->update(['price' => $newPrice, 'needs_push' => true]);
-                } else {
-                    $oldPrice = $product->price;
-                    $newPrice = (float) ($priceList[0]['original_price'] ?? 0);
-                    $product->update([
-                        'price' => $newPrice,
-                        'needs_push' => true,
-                    ]);
-                    $this->recordInventoryLog(
-                        $product,
-                        null,
-                        $product->item_sku,
-                        null,
-                        null,
-                        $oldPrice,
-                        $newPrice,
-                        'local_staged',
-                        'success'
-                    );
-                }
-            }
-        });
-
-        return $product->fresh()->load(['variants', 'store']);
-    }
-
-    /**
-     * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $stockList
-     * @param  list<array{model_id?:int,original_price?:float|int|string}>|null  $priceList
-     */
-    private function updateLazadaProduct(Product $product, ?array $stockList, ?array $priceList): Product
+    private function updateLazadaProduct(Product $product, ?array $stockList, ?array $priceList, string $source = 'user'): Product
     {
         $store = $product->store;
         if (!$store->token || !$store->is_active) {
@@ -639,9 +439,9 @@ class ProductService
             throw new \RuntimeException($response['message'] ?? 'Lazada updatePriceQuantity failed.');
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $skuUpdates) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $skuUpdates, $source) {
             $productData = [];
-            $updatedVariantIds = [];
+            $logs = [];
 
             foreach ($skuUpdates as $update) {
                 $skuId = $update['SkuId'] ?? null;
@@ -668,17 +468,15 @@ class ProductService
                         }
                         if ($changes !== []) {
                             $variant->update($changes);
-                            $updatedVariantIds[] = $variant->id;
-                            $this->recordInventoryLog(
+                            $logs[] = $this->inventoryWriter->begin(
                                 $product,
                                 $variant->id,
                                 $variant->model_sku,
-                                $newStock !== null ? $oldStock : null,
-                                $newStock,
-                                $newPrice !== null ? $oldPrice : null,
+                                $newStock !== null ? (float) $oldStock : null,
+                                $newStock !== null ? (float) $newStock : null,
+                                $newPrice !== null ? (float) $oldPrice : null,
                                 $newPrice,
-                                'user',
-                                'success'
+                                $source
                             );
                         }
                     }
@@ -701,16 +499,15 @@ class ProductService
                 }
 
                 if ($newStock !== null || $newPrice !== null) {
-                    $this->recordInventoryLog(
+                    $logs[] = $this->inventoryWriter->begin(
                         $product,
                         null,
                         $product->item_sku,
-                        $newStock !== null ? $oldStock : null,
-                        $newStock,
-                        $newPrice !== null ? $oldPrice : null,
+                        $newStock !== null ? (float) $oldStock : null,
+                        $newStock !== null ? (float) $newStock : null,
+                        $newPrice !== null ? (float) $oldPrice : null,
                         $newPrice,
-                        'user',
-                        'success'
+                        $source
                     );
                 }
             }
@@ -726,38 +523,13 @@ class ProductService
             $productData['synced_at'] = now();
             $productData['needs_push'] = false;
             $product->update($productData);
+
+            foreach ($logs as $log) {
+                $this->inventoryWriter->succeed($log);
+            }
         });
 
         return $product->fresh()->load('variants');
-    }
-
-    /**
-     * Record an inventory audit log entry.
-     */
-    private function recordInventoryLog(
-        Product $product,
-        ?int $variantId,
-        ?string $sku,
-        ?int $oldStock,
-        ?int $newStock,
-        float|int|string|null $oldPrice,
-        float|int|string|null $newPrice,
-        string $source = 'user',
-        string $status = 'success',
-        ?string $errorMessage = null,
-    ): InventoryLog {
-        return InventoryLog::create([
-            'product_id' => $product->id,
-            'product_variant_id' => $variantId,
-            'sku' => $sku,
-            'old_stock' => $oldStock,
-            'new_stock' => $newStock,
-            'old_price' => $oldPrice !== null ? (float) $oldPrice : null,
-            'new_price' => $newPrice !== null ? (float) $newPrice : null,
-            'source' => $source,
-            'status' => $status,
-            'error_message' => $errorMessage,
-        ]);
     }
 
     /**
@@ -784,7 +556,7 @@ class ProductService
                 ]
             ];
             if ($variant->product?->store?->platform === 'lazada') {
-                $this->updateStock($user, $variant->product_id, $payload);
+                $this->updateStock($user, $variant->product_id, $payload, 'linked_sync');
             } else {
                 \App\Jobs\UpdateShopeeStockJob::dispatch($user, $variant->product_id, $payload, 'linked_sync');
             }
@@ -809,7 +581,7 @@ class ProductService
                 ]
             ];
             if ($prod->store?->platform === 'lazada') {
-                $this->updateStock($user, $prod->id, $payload);
+                $this->updateStock($user, $prod->id, $payload, 'linked_sync');
             } else {
                 \App\Jobs\UpdateShopeeStockJob::dispatch($user, $prod->id, $payload, 'linked_sync');
             }
@@ -847,7 +619,7 @@ class ProductService
                 } else {
                     $payload = [['seller_stock' => [['stock' => $stock]]]];
                 }
-                $this->applyLocalStockAndPrice($user, $product->id, $payload, null);
+                $this->inventoryWriter->apply($product, $payload, null, 'local_staged');
                 $results[] = "Store #{$product->store_id}: saved locally";
                 continue;
             }
@@ -918,7 +690,7 @@ class ProductService
                 } else {
                     $payload = [['original_price' => $price]];
                 }
-                $this->applyLocalStockAndPrice($user, $product->id, null, $payload);
+                $this->inventoryWriter->apply($product, null, $payload, 'local_staged');
                 $results[] = "Store #{$product->store_id}: saved locally";
                 continue;
             }

@@ -25,6 +25,32 @@ class InventoryAuditLogTest extends TestCase
         parent::tearDown();
     }
 
+    private function bindFakeShopeeClient(): void
+    {
+        $client = new class
+        {
+            public object $Product;
+
+            public function __construct()
+            {
+                $this->Product = new class
+                {
+                    public function call(string $method, string $path, array $options = []): array
+                    {
+                        return [];
+                    }
+                };
+            }
+        };
+
+        $shopee = Mockery::mock(ShopeeService::class);
+        $shopee->shouldReceive('callWithTokenRetry')
+            ->andReturnUsing(function ($store, callable $callback, ?callable $failureFactory = null) use ($client) {
+                return $callback($client);
+            });
+        $this->app->instance(ShopeeService::class, $shopee);
+    }
+
     private function makeStore(User $user, string $platform = 'shopee', int $shopId = 9001, string $region = 'my'): ShopeeStore
     {
         $store = ShopeeStore::create([
@@ -187,6 +213,74 @@ class InventoryAuditLogTest extends TestCase
             'source' => 'local_staged',
             'status' => 'success',
         ]);
+    }
+
+    public function test_direct_shopee_stock_push_creates_one_success_log(): void
+    {
+        $user = User::factory()->create();
+        $store = $this->makeStore($user);
+        $product = Product::create([
+            'store_id' => $store->id,
+            'item_id' => 70004,
+            'item_name' => 'Direct Push Plant',
+            'item_sku' => 'PLANT-DIRECT-1',
+            'price' => 10.00,
+            'stock' => 10,
+            'has_variants' => false,
+            'needs_push' => true,
+        ]);
+
+        $this->bindFakeShopeeClient();
+
+        $response = $this->actingAs($user)->putJson("/api/products/{$product->id}/stock", [
+            'stock_list' => [
+                ['seller_stock' => [['stock' => 18]]],
+            ],
+        ]);
+
+        $response->assertOk();
+
+        $logs = InventoryLog::where('product_id', $product->id)->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame('success', $logs[0]->status);
+        $this->assertSame('PLANT-DIRECT-1', $logs[0]->sku);
+        $this->assertSame(10, (int) $logs[0]->old_stock);
+        $this->assertSame(18, (int) $logs[0]->new_stock);
+        $this->assertSame('user', $logs[0]->source);
+        $this->assertFalse($product->fresh()->needs_push);
+    }
+
+    public function test_queued_shopee_stock_push_leaves_one_success_row(): void
+    {
+        $user = User::factory()->create();
+        $store = $this->makeStore($user, 'shopee', 9006);
+        $product = Product::create([
+            'store_id' => $store->id,
+            'item_id' => 70005,
+            'item_name' => 'Queued Push Plant',
+            'item_sku' => 'PLANT-QUEUED-1',
+            'price' => 10.00,
+            'stock' => 10,
+            'has_variants' => false,
+            'needs_push' => true,
+        ]);
+
+        $this->bindFakeShopeeClient();
+
+        // QUEUE_CONNECTION=sync, so UpdateShopeeStockJob runs inline.
+        $response = $this->actingAs($user)->putJson('/api/products/stock-by-sku', [
+            'sku' => 'PLANT-QUEUED-1',
+            'stock' => 18,
+        ]);
+
+        $response->assertOk();
+
+        $logs = InventoryLog::where('product_id', $product->id)->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame('success', $logs[0]->status);
+        $this->assertSame(10, (int) $logs[0]->old_stock);
+        $this->assertSame(18, (int) $logs[0]->new_stock);
+        $this->assertSame(18, (int) $product->fresh()->stock);
     }
 
     public function test_lazada_product_stock_and_price_update_creates_inventory_logs(): void
