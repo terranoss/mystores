@@ -6,7 +6,7 @@ use App\Exceptions\StoreNotActiveException;
 use App\Models\ShopeeStore;
 use App\Models\ShopeeToken;
 use App\Models\User;
-use App\Services\ProductService;
+use App\Services\ShopeeProductAdapter;
 use App\Services\ShopeePromotionService;
 use App\Services\ShopeeService;
 use App\Services\WorkspaceAccess;
@@ -222,7 +222,7 @@ class ShopeeTokenRefreshTest extends TestCase
         }
     }
 
-    public function test_product_service_delegates_token_retry_to_shopee_service(): void
+    public function test_shopee_product_adapter_delegates_token_retry_to_shopee_service(): void
     {
         $store = $this->makeStoreWithToken([
             'access_token_expires_at' => now()->addHours(2),
@@ -232,13 +232,11 @@ class ShopeeTokenRefreshTest extends TestCase
         $shopee->shouldReceive('callWithTokenRetry')
             ->once()
             ->with(Mockery::on(fn ($s) => $s->id === $store->id), Mockery::type('callable'), Mockery::type('callable'))
-            ->andReturn(['ok' => true]);
+            ->andReturn(['item_list' => []]);
 
-        $productService = new ProductService($shopee);
-        $method = new \ReflectionMethod(ProductService::class, 'callWithTokenRetry');
-        $method->setAccessible(true);
+        $adapter = new ShopeeProductAdapter($shopee);
 
-        $this->assertSame(['ok' => true], $method->invoke($productService, $store, fn () => ['ok' => true]));
+        $this->assertSame(['item_list' => []], $adapter->fetchItemList($store, ['offset' => 0]));
     }
 
     public function test_promotion_service_delegates_token_retry_to_shopee_service(): void
@@ -260,26 +258,22 @@ class ShopeeTokenRefreshTest extends TestCase
         $this->assertSame(['ok' => true], $method->invoke($promotionService, $store, fn () => ['ok' => true]));
     }
 
-    public function test_product_service_wraps_unrecoverable_token_failure_in_domain_exception(): void
+    public function test_shopee_product_adapter_wraps_unrecoverable_token_failure_in_domain_exception(): void
     {
         $store = $this->makeStoreWithToken([
             'access_token_expires_at' => now()->addHours(2),
         ]);
 
-        $auth = Mockery::mock();
-        $auth->shouldReceive('refreshNewToken')->never();
-
-        $shopee = $this->shopeeServiceWithAuth($auth);
-
-        $productService = new ProductService($shopee);
-        $method = new \ReflectionMethod(ProductService::class, 'callWithTokenRetry');
-        $method->setAccessible(true);
+        $shopee = Mockery::mock(ShopeeService::class);
+        $shopee->shouldReceive('callWithTokenRetry')
+            ->once()
+            ->andReturnUsing(function ($store, callable $callback, callable $failureFactory) {
+                throw $failureFactory('Store token expired.');
+            });
 
         $this->expectException(StoreNotActiveException::class);
 
-        $method->invoke($productService, $store, function () {
-            throw new ShopeeException('Invalid access_token');
-        });
+        (new ShopeeProductAdapter($shopee))->fetchItemList($store, ['offset' => 0]);
     }
 
     public function test_refresh_store_token_uses_store_workspace_credentials(): void

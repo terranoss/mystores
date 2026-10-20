@@ -18,16 +18,22 @@ class ProductService
     private readonly LazadaService $lazada;
     private readonly WorkspaceAccess $workspaceAccess;
     private readonly InventoryWriter $inventoryWriter;
+    private readonly MarketplaceProductGateway $gateway;
 
     public function __construct(
         private readonly ShopeeService $shopee,
         ?LazadaService $lazada = null,
         ?WorkspaceAccess $workspaceAccess = null,
         ?InventoryWriter $inventoryWriter = null,
+        ?MarketplaceProductGateway $gateway = null,
     ) {
         $this->lazada = $lazada ?? app(LazadaService::class);
         $this->workspaceAccess = $workspaceAccess ?? app(WorkspaceAccess::class);
         $this->inventoryWriter = $inventoryWriter ?? app(InventoryWriter::class);
+        $this->gateway = $gateway ?? new MarketplaceProductGateway(
+            new ShopeeProductAdapter($this->shopee),
+            new LazadaProductAdapter($this->lazada, app(LazadaOrderService::class)),
+        );
     }
 
     /**
@@ -288,36 +294,7 @@ class ProductService
             return $this->updateLazadaProduct($product, $stockList, null, $source);
         }
 
-        // Explicitly cast parameters to correct types to prevent Go unmarshaling errors in Shopee API
-        $formattedStockList = array_map(function ($entry) {
-            $formatted = [];
-            if (isset($entry['model_id'])) {
-                $formatted['model_id'] = (int) $entry['model_id'];
-            }
-            if (isset($entry['seller_stock'])) {
-                $formatted['seller_stock'] = array_map(function ($stockEntry) {
-                    return [
-                        'stock' => (int) $stockEntry['stock'],
-                    ];
-                }, $entry['seller_stock']);
-            }
-            return $formatted;
-        }, $stockList);
-
-        $payload = [
-            'item_id' => (int) $product->item_id,
-            'stock_list' => $formattedStockList,
-        ];
-
-        $response = $this->callWithTokenRetry($store, function ($client) use ($payload) {
-            return $client->Product->call('POST', 'product/update_stock', [
-                \GuzzleHttp\RequestOptions::JSON => $payload
-            ]);
-        });
-
-        if (!empty($response['error'])) {
-            throw new \Exception("Shopee API Error: " . ($response['message'] ?? $response['error']));
-        }
+        $this->gateway->pushStock($store, $product, $stockList);
 
         // Apply the change locally and record one audit row for it.
         $this->inventoryWriter->apply($product, $stockList, null, $source, $recordAudit);
@@ -341,32 +318,7 @@ class ProductService
             return $this->updateLazadaProduct($product, null, $priceList);
         }
 
-        // Explicitly cast parameters to correct types to prevent Go unmarshaling errors in Shopee API
-        $formattedPriceList = array_map(function ($entry) {
-            $formatted = [];
-            if (isset($entry['model_id'])) {
-                $formatted['model_id'] = (int) $entry['model_id'];
-            }
-            if (isset($entry['original_price'])) {
-                $formatted['original_price'] = (float) $entry['original_price'];
-            }
-            return $formatted;
-        }, $priceList);
-
-        $payload = [
-            'item_id' => (int) $product->item_id,
-            'price_list' => $formattedPriceList,
-        ];
-
-        $response = $this->callWithTokenRetry($store, function ($client) use ($payload) {
-            return $client->Product->call('POST', 'product/update_price', [
-                \GuzzleHttp\RequestOptions::JSON => $payload
-            ]);
-        });
-
-        if (!empty($response['error'])) {
-            throw new \Exception("Shopee API Error: " . ($response['message'] ?? $response['error']));
-        }
+        $this->gateway->pushPrice($store, $product, $priceList);
 
         // Apply the change locally and record one audit row for it.
         $this->inventoryWriter->apply($product, null, $priceList, 'user');
@@ -430,14 +382,7 @@ class ProductService
         $product->loadMissing('variants');
 
         $skuUpdates = $this->lazada->buildPriceQuantitySkuUpdates($product, $stockList, $priceList);
-        $payloadXml = $this->lazada->buildPriceQuantityPayload($skuUpdates);
-        $accessToken = decrypt($store->token->access_token);
-        $region = $store->region ?? 'sg';
-        $response = $this->lazada->updatePriceQuantity($accessToken, $region, $payloadXml);
-
-        if (($response['code'] ?? '0') !== '0') {
-            throw new \RuntimeException($response['message'] ?? 'Lazada updatePriceQuantity failed.');
-        }
+        $this->gateway->pushSkuUpdates($store, $skuUpdates);
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($product, $skuUpdates, $source) {
             $productData = [];
@@ -878,13 +823,10 @@ class ProductService
             return;
         }
         try {
-            $this->callWithTokenRetry($store, function ($client) use ($store, $itemIds, $onProgress, $onError) {
-                foreach (array_chunk($itemIds, 50) as $chunk) {
-                    $this->pullItemChunk($client, $store, $chunk, $onProgress, $onError);
-                    $this->paceApiCall(100000);
-                }
-                return null;
-            });
+            foreach (array_chunk($itemIds, 50) as $chunk) {
+                $this->pullItemChunk($store, $chunk, $onProgress, $onError);
+                $this->paceApiCall(100000);
+            }
         } catch (StoreNotActiveException $e) {
             throw $e;
         } catch (\RuntimeException $e) {
@@ -903,48 +845,42 @@ class ProductService
         }
 
         try {
-            $this->callWithTokenRetry($store, function ($client) use ($store, $onProgress, $onError) {
-                $offset = 0;
-                $pageSize = 100;
-                do {
-                    $response = $this->callShopeeWithRateLimitRetry(
-                        fn () => $client->Product->getItemList([
-                            'offset' => $offset,
-                            'page_size' => $pageSize,
-                            'item_status' => 'NORMAL',
-                        ])
-                    );
-                    $items = ShopeeResponseHelper::extractItems($response);
-                    if (empty($items)) {
-                        break;
-                    }
-                    $itemIds = array_values(array_filter(array_map(function ($item) {
-                        return $item['item_id'] ?? $item['id'] ?? null;
-                    }, $items)));
-                    if (empty($itemIds)) {
-                        break;
-                    }
-                    foreach (array_chunk($itemIds, 50) as $chunk) {
-                        try {
-                            $this->pullItemChunk($client, $store, $chunk, $onProgress, $onError);
-                        } catch (\Exception $e) {
-                            if ($e instanceof AuthorizationException || ($e instanceof ShopeeException && $this->shopee->isTokenError($e))) {
-                                throw $e;
-                            }
-                            if ($this->isRateLimitError($e)) {
-                                throw $e;
-                            }
-                            if ($onError) {
-                                $onError('Batch request failed for IDs '.implode(',', $chunk).": {$e->getMessage()}", $e);
-                            }
+            $offset = 0;
+            $pageSize = 100;
+            do {
+                $response = $this->callShopeeWithRateLimitRetry(
+                    fn () => $this->gateway->fetchItemList($store, [
+                        'offset' => $offset,
+                        'page_size' => $pageSize,
+                        'item_status' => 'NORMAL',
+                    ])
+                );
+                $items = ShopeeResponseHelper::extractItems($response);
+                if (empty($items)) {
+                    break;
+                }
+                $itemIds = array_values(array_filter(array_map(function ($item) {
+                    return $item['item_id'] ?? $item['id'] ?? null;
+                }, $items)));
+                if (empty($itemIds)) {
+                    break;
+                }
+                foreach (array_chunk($itemIds, 50) as $chunk) {
+                    try {
+                        $this->pullItemChunk($store, $chunk, $onProgress, $onError);
+                    } catch (\Exception $e) {
+                        if ($this->isUnrecoverable($e)) {
+                            throw $e;
                         }
-                        $this->paceApiCall(100000);
+                        if ($onError) {
+                            $onError('Batch request failed for IDs '.implode(',', $chunk).": {$e->getMessage()}", $e);
+                        }
                     }
-                    $offset += $pageSize;
-                    $this->paceApiCall(150000);
-                } while (count($items) >= $pageSize);
-                return null;
-            });
+                    $this->paceApiCall(100000);
+                }
+                $offset += $pageSize;
+                $this->paceApiCall(150000);
+            } while (count($items) >= $pageSize);
         } catch (StoreNotActiveException $e) {
             throw $e;
         } catch (\RuntimeException $e) {
@@ -955,10 +891,10 @@ class ProductService
     /**
      * @param  list<int>  $chunk
      */
-    private function pullItemChunk($client, ShopeeStore $store, array $chunk, ?callable $onProgress, ?callable $onError): void
+    private function pullItemChunk(ShopeeStore $store, array $chunk, ?callable $onProgress, ?callable $onError): void
     {
         $detail = $this->callShopeeWithRateLimitRetry(
-            fn () => $client->Product->getItemBaseInfo(array_map('intval', $chunk))
+            fn () => $this->gateway->fetchItemDetails($store, $chunk)
         );
         $itemList = $detail['item_list'] ?? $detail['item'] ?? $detail['items'] ?? [];
         if (! is_array($itemList) || empty($itemList)) {
@@ -988,7 +924,7 @@ class ProductService
                     try {
                         $this->paceApiCall(80000);
                         $modelsResponse = $this->callShopeeWithRateLimitRetry(
-                            fn () => $client->Product->getModelList(['item_id' => (int) $itemId])
+                            fn () => $this->gateway->fetchModels($store, (int) $itemId)
                         );
                         $models = ShopeeResponseHelper::extractModels($modelsResponse);
                         foreach ($models as $model) {
@@ -1008,7 +944,7 @@ class ProductService
                             );
                         }
                     } catch (\Exception $e) {
-                        if ($this->isRateLimitError($e) || ($e instanceof AuthorizationException) || ($e instanceof ShopeeException && $this->shopee->isTokenError($e))) {
+                        if ($this->isUnrecoverable($e)) {
                             throw $e;
                         }
                         if ($onError) {
@@ -1020,7 +956,7 @@ class ProductService
                     $onProgress($product);
                 }
             } catch (\Exception $e) {
-                if ($this->isRateLimitError($e) || ($e instanceof AuthorizationException) || ($e instanceof ShopeeException && $this->shopee->isTokenError($e))) {
+                if ($this->isUnrecoverable($e)) {
                     throw $e;
                 }
                 if ($onError) {
@@ -1054,23 +990,20 @@ class ProductService
             || str_contains($msg, 'error_limit');
     }
 
+    /**
+     * Failures that must abort a pull instead of being reported as one item's error.
+     */
+    private function isUnrecoverable(\Throwable $e): bool
+    {
+        return $this->isRateLimitError($e)
+            || $e instanceof StoreNotActiveException
+            || $e instanceof AuthorizationException
+            || ($e instanceof ShopeeException && $this->shopee->isTokenError($e));
+    }
+
     private function paceApiCall(int $microseconds): void
     {
         usleep($microseconds);
-    }
-
-    /**
-     * Run a Shopee API call; on Invalid access_token, refresh once and retry before disconnecting.
-     *
-     * Delegates to ShopeeService so refresh/retry semantics live in one place.
-     */
-    private function callWithTokenRetry(ShopeeStore $store, callable $callback): mixed
-    {
-        return $this->shopee->callWithTokenRetry(
-            $store,
-            $callback,
-            fn (string $message): \Throwable => new StoreNotActiveException($message)
-        );
     }
 
     /**
@@ -1082,13 +1015,15 @@ class ProductService
             return;
         }
 
-        $accessToken = decrypt($store->token->access_token);
-        $region = $store->region ?? 'sg';
         $offset = 0;
         $limit = 50;
 
         do {
-            $response = $this->lazada->getProducts($accessToken, $region, $offset, $limit);
+            $response = $this->gateway->fetchItemList($store, [
+                'offset' => $offset,
+                'limit' => $limit,
+                'filter' => 'all',
+            ]);
             $data = $response['data'] ?? [];
             $products = $data['products'] ?? [];
 
