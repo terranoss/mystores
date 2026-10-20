@@ -98,6 +98,34 @@ class OrderStatusTest extends TestCase
     }
 
     /**
+     * @return array<string, array{0: callable(?string): bool}>
+     */
+    public static function rawValuePredicateProvider(): array
+    {
+        return [
+            'needsSync' => [[OrderStatus::class, 'needsSync']],
+            'needsFulfillment' => [[OrderStatus::class, 'needsFulfillment']],
+            'terminal' => [[OrderStatus::class, 'terminal']],
+        ];
+    }
+
+    #[DataProvider('mappingProvider')]
+    public function test_raw_values_agree_with_each_predicate_for_every_raw_value(?string $raw): void
+    {
+        $normalized = strtoupper(trim((string) $raw));
+
+        foreach (self::rawValuePredicateProvider() as $name => [$predicate]) {
+            $rawValues = OrderStatus::rawValuesFor($predicate);
+
+            $this->assertSame(
+                $predicate($raw),
+                in_array($normalized, $rawValues, true),
+                "{$name} disagrees with rawValuesFor() for '{$normalized}'."
+            );
+        }
+    }
+
+    /**
      * @return array<string, array{0: ?string, 1: ?string, 2: bool}>
      */
     public static function statusChangedProvider(): array

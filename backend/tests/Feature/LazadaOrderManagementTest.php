@@ -573,6 +573,71 @@ class LazadaOrderManagementTest extends TestCase
         $this->assertSame('pending', Order::where('order_sn', '555015')->value('order_status'));
     }
 
+    public function test_lazada_resync_uses_needs_sync_statuses(): void
+    {
+        $user = User::factory()->create();
+        $store = $this->makeStore($user, 'lazada', 9117, 'Needs Sync Resync');
+
+        foreach (['556001' => 'in_cancel', '556002' => 'shipped', '556003' => 'unpaid'] as $orderSn => $status) {
+            Order::create([
+                'store_id' => $store->id,
+                'order_sn' => $orderSn,
+                'order_status' => $status,
+                'total_amount' => 10,
+                'ordered_at' => now()->subDays(5),
+                'synced_at' => now()->subDays(4),
+            ]);
+        }
+
+        $lazada = Mockery::mock(LazadaService::class);
+        $lazada->shouldReceive('credentialsForStore')->andReturn([
+            'access_token' => 'tok',
+            'region' => 'my',
+        ]);
+
+        foreach (['556001', '556003'] as $orderSn) {
+            $lazada->shouldReceive('getOrder')
+                ->once()
+                ->with('tok', 'my', $orderSn)
+                ->andReturn([
+                    'code' => '0',
+                    'data' => [
+                        'order_id' => (int) $orderSn,
+                        'order_number' => (int) $orderSn,
+                        'price' => '10.00',
+                        'created_at' => now()->subDays(5)->toIso8601String(),
+                        'statuses' => ['delivered'],
+                    ],
+                ]);
+            $lazada->shouldReceive('getOrderItems')
+                ->once()
+                ->with('tok', 'my', $orderSn)
+                ->andReturn([
+                    'code' => '0',
+                    'data' => [
+                        [
+                            'order_item_id' => (int) $orderSn + 1000,
+                            'product_id' => (int) $orderSn + 2000,
+                            'name' => 'Plant',
+                            'status' => 'delivered',
+                            'item_price' => 10,
+                        ],
+                    ],
+                ]);
+        }
+        $lazada->shouldNotReceive('getOrder')->with('tok', 'my', '556002');
+        $this->app->instance(LazadaService::class, $lazada);
+
+        $result = app(LazadaOrderService::class)->resyncStaleActionableOrders($store->fresh('token'), 2);
+
+        $this->assertSame(2, $result['attempted']);
+        $this->assertSame(2, $result['updated']);
+        $this->assertSame(0, $result['failed']);
+        $this->assertSame('delivered', Order::where('order_sn', '556001')->value('order_status'));
+        $this->assertSame('delivered', Order::where('order_sn', '556003')->value('order_status'));
+        $this->assertSame('shipped', Order::where('order_sn', '556002')->value('order_status'));
+    }
+
     public function test_lazada_upsert_uses_item_promised_when_order_field_empty(): void
     {
         $user = User::factory()->create();

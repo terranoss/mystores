@@ -420,6 +420,80 @@ class DashboardTest extends TestCase
         $this->assertSame(2, $pendingByStore->firstWhere('store_id', $lazada->id)['count']);
     }
 
+    public function test_dashboard_pending_card_and_pending_picklist_use_needs_fulfillment(): void
+    {
+        $user = User::factory()->create();
+
+        $lazada = ShopeeStore::create([
+            'user_id' => $user->id,
+            'platform' => 'lazada',
+            'shop_id' => 20004,
+            'shop_name' => 'Lazada Needs Fulfillment',
+            'is_active' => true,
+            'linked_at' => now(),
+        ]);
+
+        $readyToShip = Order::create([
+            'store_id' => $lazada->id,
+            'order_sn' => 'LZ-NF-RTS',
+            'order_status' => 'ready_to_ship',
+            'total_amount' => 20,
+            'ordered_at' => now()->subDay(),
+        ]);
+        $readyToShip->items()->create([
+            'item_id' => 301,
+            'model_id' => 401,
+            'item_name' => 'Ready Item',
+            'quantity' => 2,
+            'price' => 10,
+        ]);
+
+        // Unpaid is resync work, not fulfilment work: never "pending".
+        $unpaid = Order::create([
+            'store_id' => $lazada->id,
+            'order_sn' => 'LZ-NF-UNPAID',
+            'order_status' => 'unpaid',
+            'total_amount' => 50,
+            'ordered_at' => now()->subDay(),
+        ]);
+        $unpaid->items()->create([
+            'item_id' => 302,
+            'model_id' => 402,
+            'item_name' => 'Unpaid Item',
+            'quantity' => 5,
+            'price' => 10,
+        ]);
+
+        // Completed is terminal: never "pending".
+        $completed = Order::create([
+            'store_id' => $lazada->id,
+            'order_sn' => 'LZ-NF-COMPLETED',
+            'order_status' => 'completed',
+            'total_amount' => 30,
+            'ordered_at' => now()->subDay(),
+        ]);
+        $completed->items()->create([
+            'item_id' => 303,
+            'model_id' => 403,
+            'item_name' => 'Completed Item',
+            'quantity' => 3,
+            'price' => 10,
+        ]);
+
+        $dashboard = $this->actingAs($user)->getJson('/api/dashboard');
+        $dashboard->assertOk();
+        $this->assertSame(1, $dashboard->json('stats.pending_orders_count'));
+        $pendingByStore = collect($dashboard->json('stats.pending_orders_by_store'));
+        $this->assertSame(1, $pendingByStore->firstWhere('store_id', $lazada->id)['count']);
+
+        $pickList = $this->actingAs($user)->getJson('/api/dashboard/pending-picklist');
+        $pickList->assertOk();
+        $pickList->assertJsonPath('total_orders', 1);
+        $pickList->assertJsonPath('total_units', 2);
+        $pickList->assertJsonPath('aggregated_items.0.item_name', 'Ready Item');
+        $pickList->assertJsonPath('orders.0.order_sn', 'LZ-NF-RTS');
+    }
+
     public function test_today_picklist_returns_aggregated_items_and_orders(): void
     {
         $user = User::factory()->create();

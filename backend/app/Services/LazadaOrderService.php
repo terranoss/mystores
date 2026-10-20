@@ -18,12 +18,16 @@ class LazadaOrderService
 
     private const MAX_LOOKBACK_DAYS = 14;
 
-    /** Statuses still expected to change via seller/logistics actions. */
-    private const ACTIONABLE_STATUSES = [
-        'unpaid',
+    /**
+     * Statuses Lazada accepts a cancellation in.
+     *
+     * Owned by the platform because Shopee's set differs. ready_to_ship is
+     * deliberately absent: once packed and handed over, Lazada rejects it.
+     */
+    private const CANCELABLE_STATUSES = [
         'pending',
+        'unpaid',
         'packed',
-        'ready_to_ship',
     ];
 
     /**
@@ -38,23 +42,6 @@ class LazadaOrderService
 
     /** How long a caller waits for an in-flight refresh before giving up. */
     private const TOKEN_REFRESH_BLOCK_SECONDS = 15;
-
-    /** Status priority: lower = more actionable for seller. */
-    private const STATUS_PRIORITY = [
-        'pending' => 10,
-        'unpaid' => 20,
-        'packed' => 30,
-        'ready_to_ship' => 40,
-        'shipped' => 50,
-        'delivered' => 60,
-        // MY/SG/ID: after delivered, buyer confirmed receipt (terminal).
-        'confirmed' => 65,
-        'returned' => 70,
-        'failed' => 80,
-        'failed_delivery' => 80,
-        'canceled' => 90,
-        'cancelled' => 90,
-    ];
 
     public function __construct(
         private readonly LazadaService $lazada,
@@ -317,7 +304,7 @@ class LazadaOrderService
         $store = $order->store;
         $this->ensureFreshToken($store);
 
-        if (!in_array($order->order_status, ['pending', 'unpaid', 'packed'], true)) {
+        if (!in_array($order->order_status, self::CANCELABLE_STATUSES, true)) {
             abort(400, "Lazada order cannot be cancelled in status: {$order->order_status}");
         }
 
@@ -409,7 +396,7 @@ class LazadaOrderService
         $order = $options['order'];
         $store = $order->store;
 
-        if ($order->order_status !== 'pending') {
+        if (OrderStatus::canonical($order->order_status) !== OrderStatus::PENDING) {
             abort(400, 'Only pending Lazada orders can be packed.');
         }
 
@@ -482,8 +469,11 @@ class LazadaOrderService
     public function downloadAwbPdf(User $user, int $orderId): array
     {
         $order = $this->getAccessibleLazadaOrder($user, $orderId);
-        $status = strtolower((string) $order->order_status);
-        if (!in_array($status, ['packed', 'ready_to_ship', 'shipped'], true)) {
+        if (!in_array(
+            OrderStatus::canonical($order->order_status),
+            [OrderStatus::PACKED, OrderStatus::READY_TO_SHIP, OrderStatus::SHIPPED],
+            true
+        )) {
             abort(400, 'Order must be packed, ready to ship, or shipped to print AWB.');
         }
 
@@ -528,7 +518,11 @@ class LazadaOrderService
         $store = $order->store;
         $this->ensureFreshToken($store);
 
-        if (!in_array($order->order_status, ['packed', 'ready_to_ship'], true)) {
+        if (!in_array(
+            OrderStatus::canonical($order->order_status),
+            [OrderStatus::PACKED, OrderStatus::READY_TO_SHIP],
+            true
+        )) {
             abort(400, 'Order must be packed before marking ready to ship.');
         }
 
@@ -703,9 +697,13 @@ class LazadaOrderService
 
         $this->ensureFreshToken($store);
         $cutoff = now()->subDays($olderThanDays);
+        $syncStatuses = array_map('strtolower', OrderStatus::rawValuesFor([OrderStatus::class, 'needsSync']));
         $orders = Order::query()
             ->where('store_id', $store->id)
-            ->whereIn('order_status', self::ACTIONABLE_STATUSES)
+            ->whereRaw(
+                'LOWER(order_status) in ('.implode(',', array_fill(0, count($syncStatuses), '?')).')',
+                $syncStatuses
+            )
             ->where(function ($q) use ($cutoff) {
                 $q->where(function ($inner) use ($cutoff) {
                     $inner->whereNotNull('ordered_at')->where('ordered_at', '<=', $cutoff);
@@ -759,25 +757,25 @@ class LazadaOrderService
      */
     private function deriveOrderStatus(array $statuses, ?string $existingStatus = null): string
     {
-        if ($statuses === []) {
-            // Do not regress an existing advanced status when the API omits statuses.
-            return $this->normalizeStatus($existingStatus) ?? 'pending';
-        }
-        $best = null;
-        $bestPriority = PHP_INT_MAX;
+        $normalized = [];
         foreach ($statuses as $status) {
-            $normalized = $this->normalizeStatus((string) $status);
-            if ($normalized === null) {
-                continue;
-            }
-            $priority = self::STATUS_PRIORITY[$normalized] ?? 100;
-            if ($priority < $bestPriority) {
-                $bestPriority = $priority;
-                $best = $normalized;
+            $value = $this->normalizeStatus((string) $status);
+            if ($value !== null) {
+                $normalized[] = $value;
             }
         }
 
-        return $best ?? ($this->normalizeStatus($existingStatus) ?? 'pending');
+        if ($normalized === []) {
+            // Do not regress an existing advanced status when the API omits statuses.
+            return $this->normalizeStatus($existingStatus) ?? 'pending';
+        }
+
+        // Unmapped values are ignored for ranking; keep the marketplace's own
+        // spelling when none of them map, rather than inventing a state.
+        return OrderStatus::mostActionable($normalized)
+            ?? $normalized[0]
+            ?? $this->normalizeStatus($existingStatus)
+            ?? 'pending';
     }
 
     private function normalizeStatus(?string $status): ?string

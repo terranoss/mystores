@@ -9,6 +9,7 @@ use App\Models\PickListCommentRead;
 use App\Models\PickListCompletion;
 use App\Models\Product;
 use App\Models\ShopeeStore;
+use App\Services\OrderStatus;
 use App\Services\WorkspaceAccess;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,28 +19,6 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    /** @var list<string> */
-    private const CANCELLED_STATUSES = [
-        'CANCELLED',
-        'CANCELED',
-        'cancelled',
-        'canceled',
-    ];
-
-    /**
-     * Seller-actionable fulfillment statuses for the Pending Orders card.
-     * Excludes completed terminal states (delivered, confirmed, COMPLETED, SHIPPED, etc.).
-     *
-     * @var list<string>
-     */
-    private const PENDING_ORDER_STATUSES = [
-        'unpaid',
-        'pending',
-        'packed',
-        'ready_to_ship',
-        'processed',
-    ];
-
     /** @var list<int> */
     private const ALLOWED_TREND_DAYS = [7, 14, 30];
 
@@ -99,9 +78,10 @@ class DashboardController extends Controller
                 $this->applyOrderedBetween($query, $todayStart, $todayEnd);
             });
 
+        $pendingStatuses = $this->fulfillmentStatusValues();
         $pendingOrdersQuery = Order::query()
             ->tap($workspaceOrders)
-            ->whereRaw('LOWER(order_status) in ('.implode(',', array_fill(0, count(self::PENDING_ORDER_STATUSES), '?')).')', self::PENDING_ORDER_STATUSES)
+            ->whereRaw('LOWER(order_status) in ('.implode(',', array_fill(0, count($pendingStatuses), '?')).')', $pendingStatuses)
             ->where(function ($query) use ($todayStart) {
                 $this->applyOrderedBefore($query, $todayStart);
             });
@@ -227,10 +207,11 @@ class DashboardController extends Controller
 
         $tz = config('app.dashboard_timezone', 'Asia/Kuala_Lumpur');
         $todayStart = Carbon::today($tz)->utc();
+        $pendingStatuses = $this->fulfillmentStatusValues();
 
         $orders = Order::query()
             ->whereHas('store', fn ($q) => $q->whereIn('workspace_id', $workspaceIds))
-            ->whereRaw('LOWER(order_status) in ('.implode(',', array_fill(0, count(self::PENDING_ORDER_STATUSES), '?')).')', self::PENDING_ORDER_STATUSES)
+            ->whereRaw('LOWER(order_status) in ('.implode(',', array_fill(0, count($pendingStatuses), '?')).')', $pendingStatuses)
             ->where(function ($query) use ($todayStart) {
                 $this->applyOrderedBefore($query, $todayStart);
             })
@@ -399,10 +380,38 @@ class DashboardController extends Controller
 
     private function excludeCancelled(Builder $query): void
     {
-        $query->where(function ($q) {
+        $cancelledStatuses = $this->cancelledStatusValues();
+
+        $query->where(function ($q) use ($cancelledStatuses) {
             $q->whereNull('order_status')
-                ->orWhereNotIn('order_status', self::CANCELLED_STATUSES);
+                ->orWhereRaw(
+                    'LOWER(order_status) not in ('.implode(',', array_fill(0, count($cancelledStatuses), '?')).')',
+                    $cancelledStatuses
+                );
         });
+    }
+
+    /**
+     * Raw statuses that mean the order still needs seller fulfilment.
+     *
+     * @return list<string>
+     */
+    private function fulfillmentStatusValues(): array
+    {
+        return array_map('strtolower', OrderStatus::rawValuesFor([OrderStatus::class, 'needsFulfillment']));
+    }
+
+    /**
+     * Raw statuses that mean the order was cancelled, in any spelling.
+     *
+     * @return list<string>
+     */
+    private function cancelledStatusValues(): array
+    {
+        return array_map(
+            'strtolower',
+            OrderStatus::rawValuesFor(fn (?string $raw) => OrderStatus::canonical($raw) === OrderStatus::CANCELLED)
+        );
     }
 
     /**
@@ -416,6 +425,7 @@ class DashboardController extends Controller
         ?string $marketplace = null,
         ?int $storeId = null
     ): array {
+        $cancelledStatuses = $this->cancelledStatusValues();
         $rows = Order::query()
             ->whereHas('store', function ($q) use ($workspaceIds, $marketplace, $storeId) {
                 $q->whereIn('workspace_id', $workspaceIds);
@@ -426,7 +436,10 @@ class DashboardController extends Controller
                     $q->where('id', $storeId);
                 }
             })
-            ->whereIn('order_status', self::CANCELLED_STATUSES)
+            ->whereRaw(
+                'LOWER(order_status) in ('.implode(',', array_fill(0, count($cancelledStatuses), '?')).')',
+                $cancelledStatuses
+            )
             ->where(function ($query) use ($rangeStartUtc, $rangeEndUtc) {
                 $this->applyOrderedBetween($query, $rangeStartUtc, $rangeEndUtc);
             })

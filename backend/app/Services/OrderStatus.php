@@ -209,6 +209,29 @@ final class OrderStatus
     }
 
     /**
+     * The raw marketplace spellings for which the given predicate holds.
+     *
+     * The spelling is returned as it is keyed in the mapping table (Shopee's
+     * uppercase). SQL callers lowercase the result when they compare against a
+     * case-insensitive or lowercase column.
+     *
+     * @param  callable(?string): bool  $predicate  one of this module's raw-status predicates
+     * @return list<string>
+     */
+    public static function rawValuesFor(callable $predicate): array
+    {
+        $rawValues = [];
+
+        foreach (array_keys(self::MAPPING) as $raw) {
+            if ($predicate($raw)) {
+                $rawValues[] = $raw;
+            }
+        }
+
+        return $rawValues;
+    }
+
+    /**
      * Human-readable label for a canonical status. Unmapped values are neutral.
      */
     public static function label(?string $canonical): string

@@ -262,6 +262,73 @@ class PickListCompletionTest extends TestCase
         Storage::disk('local')->assertMissing($path);
     }
 
+    public function test_photo_cleanup_follows_needs_fulfillment_statuses(): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->create();
+        ['store' => $store, 'order' => $order, 'itemKey' => $itemKey] = $this->seedTodayOrder($user);
+
+        // The seeded order is finished, so it cannot keep the photo alive.
+        $order->update(['order_status' => 'COMPLETED']);
+
+        $this->actingAs($user)->post('/api/dashboard/picklist-completions', [
+            'kind' => 'today',
+            'item_key' => $itemKey,
+            'item_name' => 'Ergonomic Mouse',
+            'photo' => UploadedFile::fake()->image('pick.jpg'),
+        ])->assertCreated();
+        $this->assertDatabaseHas('pick_list_completions', ['item_key' => $itemKey]);
+
+        // Unpaid is not fulfilment work, so it does not keep the photo.
+        $unpaid = Order::create([
+            'store_id' => $store->id,
+            'order_sn' => 'PL-PHOTO-UNPAID',
+            'order_status' => 'unpaid',
+            'total_amount' => 20.00,
+            'ordered_at' => now(),
+        ]);
+        $unpaid->items()->create([
+            'item_id' => 101,
+            'model_id' => 201,
+            'item_name' => 'Ergonomic Mouse',
+            'quantity' => 1,
+            'price' => 20.00,
+        ]);
+
+        $deleted = app(\App\Services\PickListPhotoCleanupService::class)
+            ->cleanupForOrder($unpaid->fresh()->load(['items', 'store']));
+        $this->assertSame(1, $deleted);
+        $this->assertDatabaseMissing('pick_list_completions', ['item_key' => $itemKey]);
+
+        // A ready_to_ship order is fulfilment work, so it keeps the photo.
+        $readyToShip = Order::create([
+            'store_id' => $store->id,
+            'order_sn' => 'PL-PHOTO-RTS',
+            'order_status' => 'ready_to_ship',
+            'total_amount' => 20.00,
+            'ordered_at' => now(),
+        ]);
+        $readyToShip->items()->create([
+            'item_id' => 101,
+            'model_id' => 201,
+            'item_name' => 'Ergonomic Mouse',
+            'quantity' => 1,
+            'price' => 20.00,
+        ]);
+
+        $this->actingAs($user)->post('/api/dashboard/picklist-completions', [
+            'kind' => 'today',
+            'item_key' => $itemKey,
+            'item_name' => 'Ergonomic Mouse',
+            'photo' => UploadedFile::fake()->image('pick.jpg'),
+        ])->assertCreated();
+
+        $deleted = app(\App\Services\PickListPhotoCleanupService::class)
+            ->cleanupForOrder($readyToShip->fresh()->load(['items', 'store']));
+        $this->assertSame(0, $deleted);
+        $this->assertDatabaseHas('pick_list_completions', ['item_key' => $itemKey]);
+    }
+
     public function test_photo_kept_while_another_open_order_needs_item(): void
     {
         Storage::fake('local');

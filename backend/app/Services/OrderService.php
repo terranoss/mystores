@@ -15,6 +15,13 @@ class OrderService
 
     private const MAX_LOOKBACK_DAYS = 14;
 
+    /**
+     * The Shopee statuses that still accept a cancellation.
+     *
+     * @var list<string>
+     */
+    private const CANCELABLE_STATUSES = ['READY_TO_SHIP', 'PROCESSED'];
+
     private readonly WorkspaceAccess $workspaceAccess;
     private readonly PickListPhotoCleanupService $pickListPhotos;
     private readonly WorkspaceNotificationService $workspaceNotifications;
@@ -117,9 +124,16 @@ class OrderService
      */
     private function applyUrgencyFilter($query, string $urgency): void
     {
-        $actionable = ['READY_TO_SHIP', 'PROCESSED', 'pending', 'packed'];
+        $fulfillmentStatuses = array_map(
+            'strtolower',
+            OrderStatus::rawValuesFor([OrderStatus::class, 'needsFulfillment'])
+        );
+
         $startOfToday = now()->startOfDay();
-        $query->whereIn('order_status', $actionable)->whereNotNull('ship_by_date');
+        $query->whereRaw(
+            'LOWER(order_status) in ('.implode(',', array_fill(0, count($fulfillmentStatuses), '?')).')',
+            $fulfillmentStatuses
+        )->whereNotNull('ship_by_date');
 
         if ($urgency === 'overdue') {
             $query->where('ship_by_date', '<', $startOfToday);
@@ -170,8 +184,7 @@ class OrderService
             abort(400, 'Store token missing or inactive.');
         }
 
-        $cancelableStatuses = ['READY_TO_SHIP', 'PROCESSED'];
-        if (!in_array($order->order_status, $cancelableStatuses)) {
+        if (!in_array($order->order_status, self::CANCELABLE_STATUSES, true)) {
             abort(400, "Order cannot be cancelled in status: {$order->order_status}");
         }
 
@@ -326,7 +339,7 @@ class OrderService
     {
         $order = $this->syncOrderBySn($store, $orderSn);
         for ($i = 1; $i < $attempts; $i++) {
-            if (in_array($order->order_status, ['PROCESSED', 'SHIPPED'], true)) {
+            if ($this->shipmentArranged($order->order_status)) {
                 return $order;
             }
             usleep($delayMs * 1000);
@@ -334,6 +347,18 @@ class OrderService
         }
 
         return $order;
+    }
+
+    /**
+     * Whether Shopee has already arranged the shipment.
+     *
+     * PROCESSED shares the canonical ready_to_ship value with READY_TO_SHIP but
+     * means the shipment is arranged, so the raw spelling still discriminates.
+     */
+    private function shipmentArranged(?string $status): bool
+    {
+        return $status === 'PROCESSED'
+            || OrderStatus::canonical($status) === OrderStatus::SHIPPED;
     }
 
     /**

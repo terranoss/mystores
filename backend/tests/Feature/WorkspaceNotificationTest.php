@@ -130,6 +130,55 @@ class WorkspaceNotificationTest extends TestCase
         $this->assertSame(1, $owner->fresh()->unreadNotifications()->count());
     }
 
+    public function test_status_change_notification_compares_canonical_status(): void
+    {
+        ['owner' => $owner, 'store' => $store] = $this->seedWorkspaceWithMember();
+
+        Order::create([
+            'store_id' => $store->id,
+            'order_sn' => 'SN-CANON-1',
+            'order_status' => 'READY_TO_SHIP',
+            'total_amount' => 20,
+            'ordered_at' => now()->subDay(),
+        ]);
+
+        $service = app(OrderService::class);
+
+        // A casing-only change is the same lifecycle state.
+        $service->upsertOrderFromDetail($store, [
+            'order_sn' => 'SN-CANON-1',
+            'order_status' => 'ready_to_ship',
+            'total_amount' => 20,
+            'create_time' => now()->subDay()->timestamp,
+            'item_list' => [],
+        ]);
+        $this->assertSame(0, $owner->fresh()->unreadNotifications()->count());
+
+        // PROCESSED and READY_TO_SHIP are synonyms, so this is not a change either.
+        $service->upsertOrderFromDetail($store, [
+            'order_sn' => 'SN-CANON-1',
+            'order_status' => 'PROCESSED',
+            'total_amount' => 20,
+            'create_time' => now()->subDay()->timestamp,
+            'item_list' => [],
+        ]);
+        $this->assertSame(0, $owner->fresh()->unreadNotifications()->count());
+
+        // A real lifecycle change still notifies once.
+        $service->upsertOrderFromDetail($store, [
+            'order_sn' => 'SN-CANON-1',
+            'order_status' => 'SHIPPED',
+            'total_amount' => 20,
+            'create_time' => now()->subDay()->timestamp,
+            'item_list' => [],
+        ]);
+        $this->assertSame(1, $owner->fresh()->unreadNotifications()->count());
+        $this->assertSame(
+            'order_status',
+            $owner->fresh()->unreadNotifications()->first()->data['category']
+        );
+    }
+
     public function test_picklist_comment_notifies_other_members_only(): void
     {
         ['owner' => $owner, 'member' => $member, 'workspace' => $workspace, 'store' => $store] = $this->seedWorkspaceWithMember();

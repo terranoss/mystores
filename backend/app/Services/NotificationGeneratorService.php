@@ -2,12 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Order;
 use App\Models\ShopeeStore;
-use App\Models\User;
-use App\Notifications\OrderUrgentNotification;
 use App\Notifications\StoreReauthNotification;
-use Carbon\Carbon;
 
 class NotificationGeneratorService
 {
@@ -51,46 +47,6 @@ class NotificationGeneratorService
                     shopName: $store->shop_name ?? "Store #{$store->shop_id}",
                     platform: strtoupper($store->platform),
                     reason: $reason
-                ));
-            }
-        }
-    }
-
-    /**
-     * Check urgent shipping deadlines and generate order notifications without duplicates.
-     */
-    public function generateUrgentOrderNotifications(): void
-    {
-        $orders = Order::with('store.user')
-            ->whereNotIn('order_status', ['COMPLETED', 'CANCELLED', 'SHIPPED'])
-            ->whereNotNull('ship_by_date')
-            ->get();
-
-        foreach ($orders as $order) {
-            $user = $order->store?->user;
-            if (!$user) continue;
-
-            $shipBy = Carbon::parse($order->ship_by_date);
-            $isOverdue = $shipBy->isPast();
-            $isDueToday = $shipBy->isToday();
-
-            if (!$isOverdue && !$isDueToday) {
-                continue;
-            }
-
-            // De-duplication check: Skip if notification already sent for this specific order
-            $alreadyNotified = $user->notifications()
-                ->where('data->category', 'order_urgent')
-                ->where('data->order_id', $order->id)
-                ->exists();
-
-            if (!$alreadyNotified) {
-                $user->notify(new OrderUrgentNotification(
-                    orderId: $order->id,
-                    orderSn: $order->order_sn,
-                    shopName: $order->store->shop_name ?? "Store #{$order->store->shop_id}",
-                    shipByDate: $shipBy->format('Y-m-d'),
-                    isOverdue: $isOverdue
                 ));
             }
         }

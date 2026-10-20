@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use App\Services\LogisticsService;
 use App\Services\OrderService;
+use App\Services\OrderStatus;
 use App\Services\WorkspaceActivityLogger;
 use EcomPHP\Shopee\Errors\ShopeeException;
 use Illuminate\Http\JsonResponse;
@@ -129,7 +131,7 @@ class OrderController extends Controller
     {
         $order = $this->orderService->getOrder($request->user(), $id);
 
-        if ($order->order_status !== 'READY_TO_SHIP') {
+        if (OrderStatus::canonical($order->order_status) !== OrderStatus::READY_TO_SHIP) {
             abort(400, 'Order must be in READY_TO_SHIP status to fetch shipping parameters.');
         }
 
@@ -172,7 +174,7 @@ class OrderController extends Controller
 
         $order = $this->orderService->getOrder($request->user(), $id);
 
-        if ($order->order_status !== 'READY_TO_SHIP') {
+        if (OrderStatus::canonical($order->order_status) !== OrderStatus::READY_TO_SHIP) {
             abort(400, 'Order must be in READY_TO_SHIP status to arrange shipment.');
         }
 
@@ -214,7 +216,7 @@ class OrderController extends Controller
         $order = $this->orderService->getOrder($request->user(), $id);
         $order->loadMissing(['items', 'store']);
 
-        if (!in_array($order->order_status, ['PROCESSED', 'SHIPPED'])) {
+        if (! $this->isPrintable($order)) {
             abort(400, 'Order must be PROCESSED or SHIPPED to print a shipping label.');
         }
 
@@ -266,7 +268,7 @@ class OrderController extends Controller
                 $order = $this->orderService->getOrder($user, $orderId);
                 $order->loadMissing(['items', 'store.token']);
 
-                if (!in_array($order->order_status, ['PROCESSED', 'SHIPPED'], true)) {
+                if (! $this->isPrintable($order)) {
                     $errors[] = [
                         'order_id' => $order->id,
                         'order_sn' => $order->order_sn,
@@ -317,5 +319,17 @@ class OrderController extends Controller
             'errors' => $errors,
             'filename' => 'awb-packing-bulk.pdf',
         ]);
+    }
+
+    /**
+     * Whether Shopee has a shipping document to print for this order.
+     *
+     * PROCESSED shares the canonical ready_to_ship value with READY_TO_SHIP but
+     * means the shipment is arranged, so the raw spelling still discriminates.
+     */
+    private function isPrintable(Order $order): bool
+    {
+        return $order->order_status === 'PROCESSED'
+            || OrderStatus::canonical($order->order_status) === OrderStatus::SHIPPED;
     }
 }

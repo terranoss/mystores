@@ -16,20 +16,6 @@ use Illuminate\Support\Facades\Storage;
 class PickListPhotoCleanupService
 {
     /**
-     * Statuses where the seller may still need to pick the item.
-     * Matches pending pick-list semantics (case-insensitive).
-     *
-     * @var list<string>
-     */
-    public const OPEN_FOR_PICK_STATUSES = [
-        'unpaid',
-        'pending',
-        'packed',
-        'ready_to_ship',
-        'processed',
-    ];
-
-    /**
      * Clean up pick photos for items on this order after its status may have changed.
      *
      * @return int Number of completion rows deleted
@@ -119,10 +105,11 @@ class PickListPhotoCleanupService
             return false;
         }
 
-        $placeholders = implode(',', array_fill(0, count(self::OPEN_FOR_PICK_STATUSES), '?'));
+        $openStatuses = $this->openStatuses();
+        $placeholders = implode(',', array_fill(0, count($openStatuses), '?'));
         $orders = Order::query()
             ->whereIn('store_id', $storeIds)
-            ->whereRaw('LOWER(COALESCE(order_status, \'\')) in ('.$placeholders.')', self::OPEN_FOR_PICK_STATUSES)
+            ->whereRaw('LOWER(COALESCE(order_status, \'\')) in ('.$placeholders.')', $openStatuses)
             ->with('items:id,order_id,item_id,model_id,item_name')
             ->get(['id', 'store_id', 'order_status']);
 
@@ -136,6 +123,16 @@ class PickListPhotoCleanupService
         }
 
         return false;
+    }
+
+    /**
+     * Raw statuses where the seller may still need to pick the item.
+     *
+     * @return list<string>
+     */
+    private function openStatuses(): array
+    {
+        return array_map('strtolower', OrderStatus::rawValuesFor([OrderStatus::class, 'needsFulfillment']));
     }
 
     private function deleteCompletionsForItemKey(int $workspaceId, string $itemKey): int

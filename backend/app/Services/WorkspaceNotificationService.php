@@ -63,7 +63,7 @@ class WorkspaceNotificationService
                 ! $wasCreated
                 && $previousStatus !== null
                 && $status !== ''
-                && (string) $previousStatus !== $status
+                && OrderStatus::statusChanged($previousStatus, $status)
             ) {
                 $this->notifyWorkspace(
                     $workspace,

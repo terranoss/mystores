@@ -364,6 +364,82 @@ class OrderListTest extends TestCase
         $statusIn->assertJsonPath('data.0.order_sn', '260728SHIPPED001');
     }
 
+    public function test_order_list_includes_lazada_ready_to_ship_in_every_urgency_bucket(): void
+    {
+        $user = User::factory()->create();
+        $store = ShopeeStore::create([
+            'user_id' => $user->id,
+            'platform' => 'lazada',
+            'shop_id' => 551013,
+            'shop_name' => 'Lazada Urgency Shop',
+            'region' => 'my',
+            'is_active' => true,
+        ]);
+
+        $overdue = Order::create([
+            'store_id' => $store->id,
+            'order_sn' => 'LZ-URGENT-OVERDUE',
+            'order_status' => 'ready_to_ship',
+            'total_amount' => 10,
+            'currency' => 'MYR',
+            'ship_by_date' => now()->subDay()->startOfDay()->addHours(12),
+            'ordered_at' => now()->subDays(2),
+            'synced_at' => now(),
+        ]);
+
+        $dueToday = Order::create([
+            'store_id' => $store->id,
+            'order_sn' => 'LZ-URGENT-TODAY',
+            'order_status' => 'ready_to_ship',
+            'total_amount' => 11,
+            'currency' => 'MYR',
+            'ship_by_date' => now()->startOfDay()->addHours(15),
+            'ordered_at' => now(),
+            'synced_at' => now(),
+        ]);
+
+        $dueLater = Order::create([
+            'store_id' => $store->id,
+            'order_sn' => 'LZ-URGENT-48H',
+            'order_status' => 'ready_to_ship',
+            'total_amount' => 12,
+            'currency' => 'MYR',
+            'ship_by_date' => now()->addDay()->startOfDay()->addHours(10),
+            'ordered_at' => now(),
+            'synced_at' => now(),
+        ]);
+
+        // Unpaid is not fulfilment work, so it never belongs in an urgency bucket.
+        Order::create([
+            'store_id' => $store->id,
+            'order_sn' => 'LZ-URGENT-UNPAID',
+            'order_status' => 'unpaid',
+            'total_amount' => 13,
+            'currency' => 'MYR',
+            'ship_by_date' => now()->subDay(),
+            'ordered_at' => now()->subDay(),
+            'synced_at' => now(),
+        ]);
+
+        $overdueResponse = $this->actingAs($user)->getJson('/api/orders?urgency=overdue');
+        $overdueResponse->assertOk();
+        $overdueResponse->assertJsonPath('total', 1);
+        $overdueResponse->assertJsonPath('data.0.id', $overdue->id);
+
+        $dueTodayResponse = $this->actingAs($user)->getJson('/api/orders?urgency=due_today');
+        $dueTodayResponse->assertOk();
+        $dueTodayResponse->assertJsonPath('total', 1);
+        $dueTodayResponse->assertJsonPath('data.0.id', $dueToday->id);
+
+        $due48Response = $this->actingAs($user)->getJson('/api/orders?urgency=due_48h');
+        $due48Response->assertOk();
+        $due48Response->assertJsonPath('total', 2);
+        $this->assertEqualsCanonicalizing(
+            [$dueToday->id, $dueLater->id],
+            array_column($due48Response->json('data'), 'id'),
+        );
+    }
+
     public function test_order_list_filters_by_ordered_date_range_and_sort(): void
     {
         $user = User::factory()->create();
