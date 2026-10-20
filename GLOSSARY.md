@@ -36,6 +36,16 @@ _Avoid_: public key, guid, slug
 The single Workspace a user is currently acting in, resolved server-side by `WorkspaceAccess::primaryWorkspace()`. The mobile app never names a workspace; the API resolves it for every request.
 _Avoid_: active workspace, current workspace (client-side)
 
+### Orders
+
+**Order Status**:
+The marketplace's own spelling of an order's lifecycle state — `READY_TO_SHIP`/`PROCESSED` for Shopee, `ready_to_ship`/`packed` for Lazada. Stored on the order row and never interpreted directly.
+_Avoid_: order state, status code, raw status
+
+**Canonical Status**:
+The platform-independent lifecycle state derived from an **Order Status**: `unpaid`, `pending`, `packed`, `ready_to_ship`, `shipped`, `delivered`, `completed`, `cancelling`, `cancelled`, `returned`, `failed`. Owned by `OrderStatus` and emitted on order payloads as `canonical_status`; a raw status with no mapping yields `null` rather than a guessed state.
+_Avoid_: normalized status, status category
+
 ### Advertising
 
 **Interstitial**:
