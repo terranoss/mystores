@@ -140,6 +140,106 @@ class InventoryWriterTest extends TestCase
         $this->assertSame('user', $logs[0]->source);
     }
 
+    public function test_apply_combines_stock_and_price_into_one_row_for_a_simple_product(): void
+    {
+        $product = $this->makeProduct();
+
+        $this->writer()->apply(
+            $product,
+            [['seller_stock' => [['stock' => 18]]]],
+            [['original_price' => 29.50]],
+            'local_staged',
+        );
+
+        $logs = InventoryLog::where('product_id', $product->id)->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame('success', $logs[0]->status);
+        $this->assertSame(10, (int) $logs[0]->old_stock);
+        $this->assertSame(18, (int) $logs[0]->new_stock);
+        $this->assertSame(25.0, (float) $logs[0]->old_price);
+        $this->assertSame(29.5, (float) $logs[0]->new_price);
+    }
+
+    public function test_apply_combines_stock_and_price_into_one_row_per_variant(): void
+    {
+        $product = $this->makeProduct(['item_sku' => 'WRITER-VAR-COMBINED'], true);
+        $small = ProductVariant::create([
+            'product_id' => $product->id,
+            'model_id' => 601,
+            'name' => 'Small',
+            'model_sku' => 'WRITER-COMB-S',
+            'price' => 15.00,
+            'stock' => 8,
+        ]);
+        $large = ProductVariant::create([
+            'product_id' => $product->id,
+            'model_id' => 602,
+            'name' => 'Large',
+            'model_sku' => 'WRITER-COMB-L',
+            'price' => 20.00,
+            'stock' => 12,
+        ]);
+
+        $this->writer()->apply(
+            $product,
+            [
+                ['model_id' => 601, 'seller_stock' => [['stock' => 14]]],
+                ['model_id' => 602, 'seller_stock' => [['stock' => 16]]],
+            ],
+            [
+                ['model_id' => 601, 'original_price' => 18.00],
+                ['model_id' => 602, 'original_price' => 24.00],
+            ],
+            'local_staged',
+        );
+
+        $logs = InventoryLog::where('product_id', $product->id)->orderBy('product_variant_id')->get();
+        $this->assertCount(2, $logs);
+
+        $this->assertDatabaseHas('inventory_logs', [
+            'product_id' => $product->id,
+            'product_variant_id' => $small->id,
+            'old_stock' => 8,
+            'new_stock' => 14,
+            'old_price' => 15.00,
+            'new_price' => 18.00,
+        ]);
+        $this->assertDatabaseHas('inventory_logs', [
+            'product_id' => $product->id,
+            'product_variant_id' => $large->id,
+            'old_stock' => 12,
+            'new_stock' => 16,
+            'old_price' => 20.00,
+            'new_price' => 24.00,
+        ]);
+    }
+
+    public function test_apply_with_a_model_id_targets_the_matching_variant_even_when_the_parent_is_not_flagged(): void
+    {
+        $product = $this->makeProduct(['item_sku' => 'WRITER-PLAIN-PARENT'], false);
+        $variant = ProductVariant::create([
+            'product_id' => $product->id,
+            'model_id' => 701,
+            'name' => 'Only Variant',
+            'model_sku' => 'WRITER-PLAIN-V',
+            'price' => 10.00,
+            'stock' => 2,
+        ]);
+
+        $this->writer()->apply($product, [
+            ['model_id' => 701, 'seller_stock' => [['stock' => 42]]],
+        ], null, 'order_webhook');
+
+        $this->assertSame(42, (int) $variant->fresh()->stock);
+
+        $logs = InventoryLog::where('product_id', $product->id)->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame($variant->id, $logs[0]->product_variant_id);
+        $this->assertSame(2, (int) $logs[0]->old_stock);
+        $this->assertSame(42, (int) $logs[0]->new_stock);
+        $this->assertSame('order_webhook', $logs[0]->source);
+    }
+
     public function test_begin_then_succeed_closes_the_pending_row_instead_of_adding_one(): void
     {
         $product = $this->makeProduct();

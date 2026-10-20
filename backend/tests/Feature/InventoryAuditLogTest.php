@@ -103,20 +103,14 @@ class InventoryAuditLogTest extends TestCase
 
         $response->assertOk();
 
+        $logs = InventoryLog::where('product_id', $product->id)->get();
+        $this->assertCount(1, $logs);
         $this->assertDatabaseHas('inventory_logs', [
             'product_id' => $product->id,
             'product_variant_id' => null,
             'sku' => 'PLANT-SIMPLE-1',
             'old_stock' => 10,
             'new_stock' => 18,
-            'source' => 'local_staged',
-            'status' => 'success',
-        ]);
-
-        $this->assertDatabaseHas('inventory_logs', [
-            'product_id' => $product->id,
-            'product_variant_id' => null,
-            'sku' => 'PLANT-SIMPLE-1',
             'old_price' => 25.00,
             'new_price' => 29.50,
             'source' => 'local_staged',
@@ -170,44 +164,27 @@ class InventoryAuditLogTest extends TestCase
 
         $response->assertOk();
 
-        // Check variant 1 stock log
+        // One combined stock+price row per variant.
+        $this->assertCount(2, InventoryLog::where('product_id', $product->id)->get());
+
         $this->assertDatabaseHas('inventory_logs', [
             'product_id' => $product->id,
             'product_variant_id' => $variant1->id,
             'sku' => 'PLANT-VAR-S',
             'old_stock' => 8,
             'new_stock' => 14,
-            'source' => 'local_staged',
-            'status' => 'success',
-        ]);
-
-        // Check variant 1 price log
-        $this->assertDatabaseHas('inventory_logs', [
-            'product_id' => $product->id,
-            'product_variant_id' => $variant1->id,
-            'sku' => 'PLANT-VAR-S',
             'old_price' => 15.00,
             'new_price' => 18.00,
             'source' => 'local_staged',
             'status' => 'success',
         ]);
 
-        // Check variant 2 stock log
         $this->assertDatabaseHas('inventory_logs', [
             'product_id' => $product->id,
             'product_variant_id' => $variant2->id,
             'sku' => 'PLANT-VAR-L',
             'old_stock' => 12,
             'new_stock' => 16,
-            'source' => 'local_staged',
-            'status' => 'success',
-        ]);
-
-        // Check variant 2 price log
-        $this->assertDatabaseHas('inventory_logs', [
-            'product_id' => $product->id,
-            'product_variant_id' => $variant2->id,
-            'sku' => 'PLANT-VAR-L',
             'old_price' => 20.00,
             'new_price' => 24.00,
             'source' => 'local_staged',
@@ -248,6 +225,41 @@ class InventoryAuditLogTest extends TestCase
         $this->assertSame(18, (int) $logs[0]->new_stock);
         $this->assertSame('user', $logs[0]->source);
         $this->assertFalse($product->fresh()->needs_push);
+    }
+
+    public function test_direct_shopee_stock_and_price_push_creates_one_combined_row(): void
+    {
+        $user = User::factory()->create();
+        $store = $this->makeStore($user, 'shopee', 9007);
+        $product = Product::create([
+            'store_id' => $store->id,
+            'item_id' => 70006,
+            'item_name' => 'Combined Push Plant',
+            'item_sku' => 'PLANT-COMBINED-1',
+            'price' => 10.00,
+            'stock' => 10,
+            'has_variants' => false,
+        ]);
+
+        $this->bindFakeShopeeClient();
+
+        $response = $this->actingAs($user)->putJson("/api/products/{$product->id}/stock-price", [
+            'stock_list' => [
+                ['seller_stock' => [['stock' => 18]]],
+            ],
+            'price_list' => [
+                ['original_price' => 12.50],
+            ],
+        ]);
+
+        $response->assertOk();
+
+        $logs = InventoryLog::where('product_id', $product->id)->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame(10, (int) $logs[0]->old_stock);
+        $this->assertSame(18, (int) $logs[0]->new_stock);
+        $this->assertSame(10.0, (float) $logs[0]->old_price);
+        $this->assertSame(12.5, (float) $logs[0]->new_price);
     }
 
     public function test_queued_shopee_stock_push_leaves_one_success_row(): void

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\UpdateShopeeStockJob;
+use App\Models\InventoryLog;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ShopeeStore;
@@ -250,6 +251,48 @@ class LazadaProductUpdateTest extends TestCase
             'id' => $lazadaProduct->id,
             'stock' => 15,
         ]);
+    }
+
+    public function test_lazada_update_does_not_write_rows_when_the_caller_owns_the_audit_lifecycle(): void
+    {
+        $user = User::factory()->create();
+        $store = $this->makeStore($user, 'lazada', 9008, 'Lazada Job Owned');
+        $product = Product::create([
+            'store_id' => $store->id,
+            'item_id' => 10008,
+            'item_name' => 'Lazada Job Owned Item',
+            'item_sku' => 'LAZ-JOB-1',
+            'price' => 10.00,
+            'stock' => 5,
+            'has_variants' => false,
+            'raw_response' => [
+                'skus' => [
+                    ['SkuId' => 99008],
+                ],
+            ],
+        ]);
+
+        $lazada = Mockery::mock(LazadaService::class)->makePartial();
+        $lazada->shouldReceive('buildPriceQuantitySkuUpdates')
+            ->once()
+            ->andReturn([['ItemId' => 10008, 'SellerSku' => 'LAZ-JOB-1', 'Quantity' => 22]]);
+        $this->app->instance(LazadaService::class, $lazada);
+
+        $gateway = Mockery::mock(\App\Services\MarketplaceProductGateway::class);
+        $gateway->shouldReceive('pushSkuUpdates')->once()->andReturn(['code' => '0']);
+
+        $service = new \App\Services\ProductService(
+            Mockery::mock(ShopeeService::class),
+            $lazada,
+            null,
+            null,
+            $gateway,
+        );
+
+        $service->updateStock($user, $product->id, [['seller_stock' => [['stock' => 22]]]], 'linked_sync', false);
+
+        $this->assertSame(22, (int) $product->fresh()->stock);
+        $this->assertSame(0, InventoryLog::where('product_id', $product->id)->count());
     }
 
     public function test_missing_lazada_credentials_fail_clearly(): void

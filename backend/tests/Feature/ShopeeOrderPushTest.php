@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Jobs\SyncShopeeOrderJob;
+use App\Models\InventoryLog;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ShopeeStore;
 use App\Models\ShopeeToken;
 use App\Models\User;
@@ -205,6 +207,90 @@ class ShopeeOrderPushTest extends TestCase
 
         $this->assertSame(42, $product->fresh()->stock);
         Bus::assertNotDispatched(SyncShopeeOrderJob::class);
+    }
+
+    public function test_stock_push_with_model_id_updates_the_matching_variant(): void
+    {
+        Bus::fake();
+        $store = $this->makeStore(shopId: 727720661);
+        $product = Product::create([
+            'store_id' => $store->id,
+            'item_id' => 111222334,
+            'item_name' => 'Variant Stock Push Product',
+            'stock' => 9,
+            'has_variants' => true,
+            'item_sku' => null,
+        ]);
+        $variant = ProductVariant::create([
+            'product_id' => $product->id,
+            'model_id' => 55501,
+            'name' => 'Default',
+            'model_sku' => null,
+            'price' => 10.00,
+            'stock' => 4,
+        ]);
+
+        $payload = [
+            'code' => 8,
+            'shop_id' => $store->shop_id,
+            'data' => [
+                'item_id' => 111222334,
+                'model_id' => 55501,
+                'stock' => 42,
+            ],
+        ];
+
+        $this->postSignedWebhook($payload)->assertOk();
+
+        $this->assertSame(42, (int) $variant->fresh()->stock);
+
+        $logs = InventoryLog::where('product_id', $product->id)->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame($variant->id, $logs[0]->product_variant_id);
+        $this->assertSame('order_webhook', $logs[0]->source);
+    }
+
+    public function test_stock_push_with_model_id_on_a_non_variant_product_still_targets_the_variant(): void
+    {
+        Bus::fake();
+        $store = $this->makeStore(shopId: 727720662);
+        $product = Product::create([
+            'store_id' => $store->id,
+            'item_id' => 111222335,
+            'item_name' => 'Misflagged Stock Push Product',
+            'stock' => 5,
+            'has_variants' => false,
+            'item_sku' => null,
+        ]);
+        $variant = ProductVariant::create([
+            'product_id' => $product->id,
+            'model_id' => 55502,
+            'name' => 'Only Variant',
+            'model_sku' => null,
+            'price' => 10.00,
+            'stock' => 2,
+        ]);
+
+        $payload = [
+            'code' => 8,
+            'shop_id' => $store->shop_id,
+            'data' => [
+                'item_id' => 111222335,
+                'model_id' => 55502,
+                'stock' => 42,
+            ],
+        ];
+
+        $this->postSignedWebhook($payload)->assertOk();
+
+        $this->assertSame(42, (int) $variant->fresh()->stock);
+
+        $logs = InventoryLog::where('product_id', $product->id)->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame($variant->id, $logs[0]->product_variant_id);
+        $this->assertSame(2, (int) $logs[0]->old_stock);
+        $this->assertSame(42, (int) $logs[0]->new_stock);
+        $this->assertSame('order_webhook', $logs[0]->source);
     }
 
     public function test_cancel_order_uses_positional_sdk_arguments(): void
