@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Spinner from '../components/Spinner';
 import OrderDetailDrawer from '../components/OrderDetailDrawer';
@@ -16,12 +16,15 @@ import {
   canShip,
 } from '../lib/orderStatus';
 import { formatCurrency, formatDate, getShipByInfo } from '../lib/orderFormat';
+import {
+  isOrderPrintable,
+  useOrderSelection,
+} from '../lib/useOrderSelection';
+import { useOrderSync } from '../lib/useOrderSync';
 import { useStore } from '../context/StoreContext';
 import { useToast } from '../context/ToastContext';
 import {
   getOrders,
-  syncOrders,
-  syncLazadaOrders,
   packLazadaOrder,
   downloadLazadaAwb,
   downloadLazadaAwbsBulk,
@@ -37,7 +40,6 @@ import {
   openPdfBlob,
 } from '../lib/shippingLabelPdf';
 
-const BULK_PRINT_MAX = 15;
 const ITEMS_PREVIEW = 2;
 
 type PlatformFilter = MarketplaceType | 'all';
@@ -174,12 +176,6 @@ function orderPlatform(order: Order): MarketplaceType {
   return order.store?.platform === 'lazada' ? 'lazada' : 'shopee';
 }
 
-function isPrintable(order: Order): boolean {
-  return orderPlatform(order) === 'lazada'
-    ? canLazadaPrintAwb(order.canonical_status)
-    : canPrintLabel(order.canonical_status);
-}
-
 export default function UnifiedOrdersPanel() {
   const { stores, selectedStoreId, selectedMarketplace, setSelectedMarketplace } = useStore();
   const platformFilter: PlatformFilter = selectedMarketplace;
@@ -188,7 +184,6 @@ export default function UnifiedOrdersPanel() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [shopeePreset, setShopeePreset] = useState<ShopeePreset>('');
   const [lazadaPreset, setLazadaPreset] = useState<LazadaPreset>('');
@@ -206,7 +201,6 @@ export default function UnifiedOrdersPanel() {
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [arrangingOrder, setArrangingOrder] = useState<Order | null>(null);
   const [rowBusy, setRowBusy] = useState<number | null>(null);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkPrinting, setBulkPrinting] = useState(false);
   const [expandedItemIds, setExpandedItemIds] = useState<Set<number>>(() => new Set());
   const [showFulfillmentGuide, setShowFulfillmentGuide] = useState(() => {
@@ -249,21 +243,21 @@ export default function UnifiedOrdersPanel() {
     searchInput.trim() !== '' ||
     search.trim() !== '';
 
-  const printableOnPage = useMemo(
-    () => orders.filter((o) => isPrintable(o)),
-    [orders],
-  );
-  const printableIds = useMemo(
-    () => printableOnPage.map((o) => Number(o.id)),
-    [printableOnPage],
-  );
-  const selectableIds = useMemo(
-    () => printableIds.slice(0, BULK_PRINT_MAX),
-    [printableIds],
-  );
-  const allSelectableSelected =
-    selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
-  const selectedCount = selectedIds.length;
+  const selectionResetKey = [
+    selectedStoreId,
+    platformFilter,
+    statusFilter,
+    shopeePreset,
+    lazadaPreset,
+    allPreset,
+    urgency,
+    datePreset,
+    customDateFrom,
+    customDateTo,
+    sortPreset,
+    search,
+    page,
+  ].join('|');
 
   const clearFilters = () => {
     setStatusFilter('');
@@ -332,6 +326,17 @@ export default function UnifiedOrdersPanel() {
     }
   };
 
+  const selection = useOrderSelection(orders, {
+    resetKey: selectionResetKey,
+    onLimitReached: showToast,
+  });
+  const { syncing, sync: syncOrdersNow } = useOrderSync({
+    scope: platformFilter,
+    hasShopeeStores,
+    hasLazadaStores,
+    refresh: fetchOrders,
+  });
+
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
@@ -385,7 +390,6 @@ export default function UnifiedOrdersPanel() {
   ]);
 
   useEffect(() => {
-    setSelectedIds([]);
     setExpandedItemIds(new Set());
   }, [
     selectedStoreId,
@@ -421,30 +425,6 @@ export default function UnifiedOrdersPanel() {
     page,
   ]);
 
-  const toggleSelect = (order: Order) => {
-    if (!isPrintable(order)) return;
-    const id = Number(order.id);
-    setSelectedIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= BULK_PRINT_MAX) {
-        showToast(`You can print at most ${BULK_PRINT_MAX} labels at once.`, 'error');
-        return prev;
-      }
-      return [...prev, id];
-    });
-  };
-
-  const toggleSelectAllPrintable = () => {
-    if (allSelectableSelected) {
-      setSelectedIds([]);
-      return;
-    }
-    if (printableIds.length > BULK_PRINT_MAX) {
-      showToast(`Selected first ${BULK_PRINT_MAX} printable orders on this page.`, 'info');
-    }
-    setSelectedIds([...selectableIds]);
-  };
-
   const toggleItemsExpanded = (orderId: number) => {
     setExpandedItemIds((prev) => {
       const next = new Set(prev);
@@ -455,8 +435,8 @@ export default function UnifiedOrdersPanel() {
   };
 
   const handleBulkPrint = async () => {
-    if (selectedCount === 0) return;
-    const ids = [...selectedIds];
+    if (selection.selectedCount === 0) return;
+    const ids = [...selection.selectedIds];
     const orderById = new Map(orders.map((o) => [Number(o.id), o]));
     const shopeeIds: number[] = [];
     const lazadaIds: number[] = [];
@@ -551,46 +531,6 @@ export default function UnifiedOrdersPanel() {
     }
   };
 
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      if (platformFilter === 'shopee') {
-        const results = await syncOrders('shopee');
-        showToast(results.join('\n') || 'Shopee sync completed.', 'success');
-      } else if (platformFilter === 'lazada') {
-        const results = await syncLazadaOrders();
-        showToast(results.join('\n') || 'Lazada sync completed.', 'success');
-      } else {
-        const messages: string[] = [];
-        if (hasShopeeStores) {
-          try {
-            const results = await syncOrders('shopee');
-            messages.push(...(results.length ? results : ['Shopee: sync completed.']));
-          } catch {
-            messages.push('Shopee sync failed.');
-          }
-        }
-        if (hasLazadaStores) {
-          try {
-            const results = await syncLazadaOrders();
-            messages.push(...(results.length ? results : ['Lazada: sync completed.']));
-          } catch {
-            messages.push('Lazada sync failed.');
-          }
-        }
-        if (messages.length === 0) {
-          showToast('No stores to sync. Link a store from the Dashboard.', 'info');
-        } else {
-          const failed = messages.some((m) => m.toLowerCase().includes('failed'));
-          showToast(messages.join('\n'), failed ? 'error' : 'success');
-        }
-      }
-      fetchOrders();
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const runLazadaRowAction = async (order: Order, action: 'pack' | 'awb' | 'rts') => {
     setRowBusy(order.id);
     try {
@@ -623,7 +563,7 @@ export default function UnifiedOrdersPanel() {
 
   const tableRows: UnifiedTableRow[] = orders.map((order) => {
     const platform = orderPlatform(order);
-    const printable = isPrintable(order);
+    const printable = isOrderPrintable(order);
     const shipBy = platform === 'shopee' ? getShipByInfo(order) : { label: '—', tone: 'none' as const };
     const items = order.items ?? [];
     const itemsExpanded = expandedItemIds.has(order.id);
@@ -649,7 +589,7 @@ export default function UnifiedOrdersPanel() {
       shipByTone: shipBy.tone,
       totalText: formatCurrency(order.total_amount, order.currency),
       selectable: printable && !bulkPrinting,
-      selected: selectedIds.includes(Number(order.id)),
+      selected: selection.isSelected(order),
       busy: rowBusy === order.id,
       itemsExpanded,
       hiddenCount: Math.max(0, items.length - ITEMS_PREVIEW),
@@ -689,19 +629,19 @@ export default function UnifiedOrdersPanel() {
         <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={handleBulkPrint}
-            disabled={bulkPrinting || selectedCount === 0}
+            disabled={bulkPrinting || selection.selectedCount === 0}
             title="Print AWB + packing list for selected orders"
             className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 transition"
           >
             {bulkPrinting && <Spinner />}
             {bulkPrinting
               ? 'Printing…'
-              : selectedCount > 0
-                ? `Print selected (${selectedCount})`
+              : selection.selectedCount > 0
+                ? `Print selected (${selection.selectedCount})`
                 : 'Print selected'}
           </button>
           <button
-            onClick={handleSync}
+            onClick={() => void syncOrdersNow()}
             disabled={syncing}
             className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white rounded-xl disabled:opacity-50 transition ${
               platformFilter === 'shopee'
@@ -1000,13 +940,13 @@ export default function UnifiedOrdersPanel() {
         }
         rows={tableRows}
         columns={{ platform: true, store: showStoreColumn, buyer: true, shipBy: true }}
-        allSelectableSelected={allSelectableSelected}
-        disableSelectAll={selectableIds.length === 0 || bulkPrinting}
-        onToggleSelectAll={toggleSelectAllPrintable}
+        allSelectableSelected={selection.allSelectableSelected}
+        disableSelectAll={selection.selectableIds.length === 0 || bulkPrinting}
+        onToggleSelectAll={selection.toggleSelectAllPrintable}
         onOpenDetail={(row) => setDetailOrder(row.order)}
-        onToggleSelected={(row) => toggleSelect(row.order)}
+        onToggleSelected={(row) => selection.toggleSelect(row.order)}
         getSelectTitle={(row) => {
-          if (!isPrintable(row.order)) {
+          if (!isOrderPrintable(row.order)) {
             if (orderPlatform(row.order) === 'shopee') {
               return 'Shopee: Only Ready to Ship or Shipped orders can be printed';
             }

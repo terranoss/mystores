@@ -108,7 +108,8 @@ class OrderController extends Controller
         ]);
         $platform = $validated['platform'] ?? 'shopee';
 
-        $results = $this->orderService->syncForUser($request->user(), $platform);
+        $outcome = $this->orderService->syncForUser($request->user(), $platform);
+        $results = $outcome['results'];
 
         $this->activityLogger->log(
             $request->user(),
@@ -121,6 +122,8 @@ class OrderController extends Controller
         return response()->json([
             'message' => 'Sync completed.',
             'results' => $results,
+            'stores' => $outcome['stores'],
+            'failed' => $outcome['failed'],
         ]);
     }
 

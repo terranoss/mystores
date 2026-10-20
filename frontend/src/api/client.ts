@@ -435,14 +435,55 @@ export async function cancelOrder(
   await api.post(`/orders/${id}/cancel`, { cancel_reason: reason });
 }
 
-export async function syncOrders(platform: MarketplaceType = 'shopee'): Promise<string[]> {
-  const res = await api.post('/orders/sync', { platform });
-  return res.data.results;
+export interface OrderSyncStoreOutcome {
+  store_id: number;
+  platform: MarketplaceType;
+  ok: boolean;
+  message: string;
 }
 
-export async function syncLazadaOrders(): Promise<string[]> {
+/**
+ * Structured result of a manual order sync.
+ *
+ * `results` is the legacy message list; `failed` is the authoritative flag.
+ * `failed` is only true when the API says so, never inferred from message text.
+ */
+export interface OrderSyncResult {
+  results: string[];
+  stores: OrderSyncStoreOutcome[];
+  failed: boolean;
+}
+
+function normalizeOrderSyncResult(data: unknown): OrderSyncResult {
+  const payload = (data ?? {}) as {
+    results?: unknown;
+    stores?: unknown;
+    failed?: unknown;
+  };
+
+  return {
+    results: Array.isArray(payload.results)
+      ? payload.results.filter((item): item is string => typeof item === 'string')
+      : [],
+    stores: Array.isArray(payload.stores)
+      ? (payload.stores.filter(
+          (item) => item !== null && typeof item === 'object',
+        ) as OrderSyncStoreOutcome[])
+      : [],
+    failed: payload.failed === true,
+  };
+}
+
+export async function syncOrders(
+  platform: MarketplaceType = 'shopee',
+): Promise<OrderSyncResult> {
+  const res = await api.post('/orders/sync', { platform });
+  return normalizeOrderSyncResult(res.data);
+}
+
+export async function syncLazadaOrders(): Promise<OrderSyncResult> {
   const res = await api.post('/lazada/orders/sync');
-  return res.data.results;
+  return normalizeOrderSyncResult(res.data);
 }
 
 export async function cancelLazadaOrder(

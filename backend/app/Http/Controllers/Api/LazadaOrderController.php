@@ -21,7 +21,8 @@ class LazadaOrderController extends Controller
 
     public function sync(Request $request): JsonResponse
     {
-        $results = $this->orderService->syncForUser($request->user(), 'lazada');
+        $outcome = $this->orderService->syncForUser($request->user(), 'lazada');
+        $results = $outcome['results'];
 
         $this->activityLogger->log(
             $request->user(),
@@ -34,6 +35,8 @@ class LazadaOrderController extends Controller
         return response()->json([
             'message' => 'Lazada sync completed.',
             'results' => $results,
+            'stores' => $outcome['stores'],
+            'failed' => $outcome['failed'],
         ]);
     }
 

@@ -10,8 +10,6 @@ import {
   getAuthUrl,
   getLazadaAuthUrl,
   getStores,
-  syncOrders,
-  syncLazadaOrders,
   reauthorizeStore,
   disconnectStore,
   unlinkStore,
@@ -25,6 +23,7 @@ import {
   type TrendDays,
   type CancelReasonStat,
 } from '../api/client';
+import { useOrderSync } from '../lib/useOrderSync';
 import {
   accessRemainingHours,
   refreshRemainingDays,
@@ -737,7 +736,6 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const [linkingLazada, setLinkingLazada] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [togglingVacationId, setTogglingVacationId] = useState<number | null>(null);
   const [trendDays, setTrendDays] = useState<TrendDays>(7);
   const trendDaysRef = useRef(trendDays);
@@ -931,45 +929,12 @@ export default function Dashboard() {
   const hasShopeeStores = stores.some((s) => s.platform === 'shopee');
   const hasLazadaStores = stores.some((s) => s.platform === 'lazada');
 
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      if (selectedMarketplace === 'shopee') {
-        const results = await syncOrders('shopee');
-        showToast(results.join('\n') || 'Shopee sync completed.', 'success');
-      } else if (selectedMarketplace === 'lazada') {
-        const results = await syncLazadaOrders();
-        showToast(results.join('\n') || 'Lazada sync completed.', 'success');
-      } else {
-        const messages: string[] = [];
-        if (hasShopeeStores) {
-          try {
-            const results = await syncOrders('shopee');
-            messages.push(...(results.length ? results : ['Shopee: sync completed.']));
-          } catch {
-            messages.push('Shopee sync failed.');
-          }
-        }
-        if (hasLazadaStores) {
-          try {
-            const results = await syncLazadaOrders();
-            messages.push(...(results.length ? results : ['Lazada: sync completed.']));
-          } catch {
-            messages.push('Lazada sync failed.');
-          }
-        }
-        if (messages.length === 0) {
-          showToast('No stores to sync. Link a store from the Dashboard.', 'info');
-        } else {
-          const failed = messages.some((m) => m.toLowerCase().includes('failed'));
-          showToast(messages.join('\n'), failed ? 'error' : 'success');
-        }
-      }
-      fetchData();
-    } finally {
-      setSyncing(false);
-    }
-  };
+  const { syncing, sync: handleSync } = useOrderSync({
+    scope: selectedMarketplace,
+    hasShopeeStores,
+    hasLazadaStores,
+    refresh: () => fetchData(),
+  });
 
   const syncLabel =
     selectedMarketplace === 'shopee'

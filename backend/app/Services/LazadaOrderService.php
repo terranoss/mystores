@@ -75,6 +75,15 @@ class LazadaOrderService
         return $ids;
     }
 
+    /**
+     * Sync every active Lazada store in the user's workspaces.
+     *
+     * Returns `results` (the legacy message list), `stores` (per-store outcomes)
+     * and `failed` (true when any store did not sync). The message list stays
+     * byte-compatible for clients that predate the structured fields.
+     *
+     * @return array{results: list<string>, stores: list<array{store_id:int,platform:string,ok:bool,message:string}>, failed: bool}
+     */
     public function syncForUser(User $user): array
     {
         $stores = ShopeeStore::with('token')
@@ -84,20 +93,43 @@ class LazadaOrderService
             ->get();
 
         $results = [];
+        $outcomes = [];
+        $failed = false;
+
         foreach ($stores as $store) {
             if (!$store->token) {
-                $results[] = "Store #{$store->id}: skipped (no token)";
+                $message = 'skipped (no token)';
+                $results[] = "Store #{$store->id}: {$message}";
+                $outcomes[] = $this->syncOutcome($store, false, $message);
+                $failed = true;
                 continue;
             }
             try {
                 $this->syncForStore($store);
                 $results[] = "Store #{$store->id}: synced";
-            } catch (\Exception $e) {
-                $results[] = "Store #{$store->id}: failed - {$e->getMessage()}";
+                $outcomes[] = $this->syncOutcome($store, true, 'synced');
+            } catch (\Throwable $e) {
+                $message = "failed - {$e->getMessage()}";
+                $results[] = "Store #{$store->id}: {$message}";
+                $outcomes[] = $this->syncOutcome($store, false, $message);
+                $failed = true;
             }
         }
 
-        return $results;
+        return ['results' => $results, 'stores' => $outcomes, 'failed' => $failed];
+    }
+
+    /**
+     * @return array{store_id:int,platform:string,ok:bool,message:string}
+     */
+    private function syncOutcome(ShopeeStore $store, bool $ok, string $message): array
+    {
+        return [
+            'store_id' => $store->id,
+            'platform' => 'lazada',
+            'ok' => $ok,
+            'message' => $message,
+        ];
     }
 
     public function syncForStore(ShopeeStore $store): void
