@@ -7,6 +7,7 @@ use App\Models\OrderItem;
 use App\Models\ShopeeStore;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class OrderListTest extends TestCase
@@ -80,6 +81,8 @@ class OrderListTest extends TestCase
         $response->assertJsonPath('data.0.store.shop_name', 'Alpha Shop');
         $response->assertJsonPath('data.0.items.0.item_name', 'Sample Item');
         $response->assertJsonPath('data.0.shipping_address', '1 Test Street');
+        $response->assertJsonPath('data.0.order_status', 'READY_TO_SHIP');
+        $response->assertJsonPath('data.0.canonical_status', 'ready_to_ship');
     }
 
     public function test_order_show_includes_store_and_items(): void
@@ -118,6 +121,51 @@ class OrderListTest extends TestCase
         $response->assertJsonPath('order.store.shop_name', 'Detail Shop');
         $response->assertJsonPath('order.items.0.item_name', 'Detail Item');
         $response->assertJsonPath('order.shipping_address', '9 Detail Road');
+        $response->assertJsonPath('order.order_status', 'PROCESSED');
+        $response->assertJsonPath('order.canonical_status', 'ready_to_ship');
+    }
+
+    public function test_order_payload_canonical_status_is_null_for_unmapped_status_without_a_store_query(): void
+    {
+        $user = User::factory()->create();
+        $store = ShopeeStore::create([
+            'user_id' => $user->id,
+            'shop_id' => 551005,
+            'shop_name' => 'Unmapped Shop',
+            'region' => 'MY',
+            'is_active' => true,
+        ]);
+
+        $order = Order::create([
+            'store_id' => $store->id,
+            'order_sn' => '260701UNMAPPED1',
+            'order_status' => 'AWAITING_PICKUP',
+            'total_amount' => 30,
+            'currency' => 'MYR',
+            'synced_at' => now(),
+        ]);
+
+        $show = $this->actingAs($user)->getJson("/api/orders/{$order->id}");
+        $show->assertOk();
+        $show->assertJsonPath('order.order_status', 'AWAITING_PICKUP');
+        $this->assertArrayHasKey('canonical_status', $show->json('order'));
+        $this->assertNull($show->json('order.canonical_status'));
+
+        $list = $this->actingAs($user)->getJson('/api/orders?search=UNMAPPED1');
+        $list->assertOk();
+        $list->assertJsonPath('data.0.order_status', 'AWAITING_PICKUP');
+        $this->assertArrayHasKey('canonical_status', $list->json('data.0'));
+        $this->assertNull($list->json('data.0.canonical_status'));
+
+        $fresh = Order::findOrFail($order->id);
+        $this->assertFalse($fresh->relationLoaded('store'));
+
+        DB::enableQueryLog();
+        $fresh->toArray();
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertSame([], $queries, 'Deriving canonical_status must not query the database.');
     }
 
     public function test_cancel_does_not_false_negative_on_active_store_with_token(): void

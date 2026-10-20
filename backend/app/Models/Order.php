@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\OrderStatus;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -32,6 +34,27 @@ class Order extends Model
         'raw_response' => 'array',
         'synced_at' => 'datetime',
     ];
+
+    protected $appends = [
+        'canonical_status',
+    ];
+
+    /**
+     * Platform-independent status derived from the raw order_status value.
+     *
+     * Deliberately does not load the store: the mapping needs no platform hint,
+     * and one is passed only when the relation is already in memory.
+     */
+    protected function canonicalStatus(): Attribute
+    {
+        return Attribute::get(function (): ?string {
+            $platform = $this->relationLoaded('store')
+                ? $this->getRelation('store')?->platform
+                : null;
+
+            return OrderStatus::canonical($this->order_status, $platform);
+        });
+    }
 
     public function store(): BelongsTo
     {
