@@ -7,24 +7,15 @@ import PrintLabelButton from '../components/PrintLabelButton';
 import OrdersTable from '../components/orders/OrdersTable';
 import type { OrdersTableRow } from '../components/orders/ordersTableTypes';
 import LazadaOrderDetailDrawer from '../components/lazada/LazadaOrderDetailDrawer';
+import OrderStatusBadge from '../lib/OrderStatusBadge';
 import {
-  StatusBadge,
-  STATUS_LABELS,
-  canShip,
-  canPrintLabel,
-  formatCurrency,
-  formatDate,
-  getShipByInfo,
-} from '../components/orderHelpers';
-import {
-  LazadaStatusBadge,
-  LAZADA_STATUS_LABELS,
   canLazadaPack,
   canLazadaPrintAwb,
   canLazadaReadyToShip,
-  formatCurrency as formatLazadaCurrency,
-  formatDate as formatLazadaDate,
-} from '../components/lazada/lazadaOrderHelpers';
+  canPrintLabel,
+  canShip,
+} from '../lib/orderStatus';
+import { formatCurrency, formatDate, getShipByInfo } from '../lib/orderFormat';
 import { useStore } from '../context/StoreContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -104,6 +95,33 @@ const ALL_PRESETS: Record<Exclude<AllPreset, ''>, { label: string; statusIn: str
   },
 };
 
+// The status dropdown filters by the marketplace's own spelling (the API's
+// `status` param), so it lists raw values rather than canonical ones.
+const SHOPEE_STATUS_OPTIONS: Array<[string, string]> = [
+  ['UNPAID', 'Unpaid'],
+  ['READY_TO_SHIP', 'Ready to Ship'],
+  ['PROCESSED', 'Processed'],
+  ['SHIPPED', 'Shipped'],
+  ['TO_CONFIRM_RECEIVE', 'To Confirm'],
+  ['COMPLETED', 'Completed'],
+  ['IN_CANCEL', 'Cancelling'],
+  ['CANCELLED', 'Cancelled'],
+  ['TO_RETURN', 'To Return'],
+];
+
+const LAZADA_STATUS_OPTIONS: Array<[string, string]> = [
+  ['unpaid', 'Unpaid'],
+  ['pending', 'To pack'],
+  ['confirmed', 'Confirmed'],
+  ['packed', 'Packed'],
+  ['ready_to_ship', 'Ready to ship'],
+  ['shipped', 'Shipped'],
+  ['delivered', 'Delivered'],
+  ['canceled', 'Cancelled'],
+  ['returned', 'Returned'],
+  ['failed', 'Failed'],
+];
+
 const URGENCY_CHIPS: Array<{ value: UrgencyFilter; label: string }> = [
   { value: '', label: 'All' },
   { value: 'overdue', label: 'Overdue' },
@@ -158,8 +176,8 @@ function orderPlatform(order: Order): MarketplaceType {
 
 function isPrintable(order: Order): boolean {
   return orderPlatform(order) === 'lazada'
-    ? canLazadaPrintAwb(order.order_status)
-    : canPrintLabel(order.order_status);
+    ? canLazadaPrintAwb(order.canonical_status)
+    : canPrintLabel(order.canonical_status);
 }
 
 export default function UnifiedOrdersPanel() {
@@ -598,9 +616,9 @@ export default function UnifiedOrdersPanel() {
 
   const statusOptions =
     platformFilter === 'lazada'
-      ? Object.entries(LAZADA_STATUS_LABELS).filter(([k]) => k !== 'cancelled')
+      ? LAZADA_STATUS_OPTIONS
       : platformFilter === 'shopee'
-        ? Object.entries(STATUS_LABELS)
+        ? SHOPEE_STATUS_OPTIONS
         : [];
 
   const tableRows: UnifiedTableRow[] = orders.map((order) => {
@@ -609,8 +627,6 @@ export default function UnifiedOrdersPanel() {
     const shipBy = platform === 'shopee' ? getShipByInfo(order) : { label: '—', tone: 'none' as const };
     const items = order.items ?? [];
     const itemsExpanded = expandedItemIds.has(order.id);
-    const fmtDate = platform === 'lazada' ? formatLazadaDate : formatDate;
-    const fmtMoney = platform === 'lazada' ? formatLazadaCurrency : formatCurrency;
     return {
       id: order.id,
       order,
@@ -619,19 +635,19 @@ export default function UnifiedOrdersPanel() {
       orderMeta:
         platform === 'shopee'
           ? order.paid_time
-            ? `Paid ${fmtDate(order.paid_time)}`
+            ? `Paid ${formatDate(order.paid_time)}`
             : order.synced_at
-              ? `Synced ${fmtDate(order.synced_at)}`
+              ? `Synced ${formatDate(order.synced_at)}`
               : '—'
           : order.synced_at
-            ? `Synced ${fmtDate(order.synced_at)}`
+            ? `Synced ${formatDate(order.synced_at)}`
             : '—',
-      orderedAtText: order.ordered_at ? fmtDate(order.ordered_at) : '—',
+      orderedAtText: order.ordered_at ? formatDate(order.ordered_at) : '—',
       storeName: order.store?.shop_name || `Store #${order.store_id}`,
       buyerText: order.buyer_username || '—',
       shipByText: shipBy.label,
       shipByTone: shipBy.tone,
-      totalText: fmtMoney(order.total_amount, order.currency),
+      totalText: formatCurrency(order.total_amount, order.currency),
       selectable: printable && !bulkPrinting,
       selected: selectedIds.includes(Number(order.id)),
       busy: rowBusy === order.id,
@@ -991,14 +1007,10 @@ export default function UnifiedOrdersPanel() {
         onToggleSelected={(row) => toggleSelect(row.order)}
         getSelectTitle={(row) => {
           if (!isPrintable(row.order)) {
-            const platform = orderPlatform(row.order);
-            if (platform === 'shopee') {
-              if (row.order.order_status === 'READY_TO_SHIP') {
-                return "Shopee: Click 'Arrange Shipment' first to assign a courier before printing";
-              }
-              return 'Shopee: Only PROCESSED or SHIPPED orders can be printed';
+            if (orderPlatform(row.order) === 'shopee') {
+              return 'Shopee: Only Ready to Ship or Shipped orders can be printed';
             }
-            if (row.order.order_status?.toLowerCase() === 'pending') {
+            if (row.order.canonical_status === 'pending') {
               return "Lazada: Click 'Pack' first to generate the AWB before printing";
             }
             return 'Lazada: Only packed, ready to ship, or shipped orders can be printed';
@@ -1043,19 +1055,18 @@ export default function UnifiedOrdersPanel() {
             </div>
           );
         }}
-        renderStatus={(row) =>
-          orderPlatform(row.order) === 'lazada' ? (
-            <LazadaStatusBadge status={row.order.order_status} />
-          ) : (
-            <StatusBadge status={row.order.order_status} />
-          )
-        }
+        renderStatus={(row) => (
+          <OrderStatusBadge
+            status={row.order.order_status}
+            canonical={row.order.canonical_status}
+          />
+        )}
         renderActions={(row) => {
           const platform = orderPlatform(row.order);
           if (platform === 'lazada') {
             return (
               <div className="flex flex-wrap gap-1.5 justify-end">
-                {canLazadaPack(row.order.order_status) && (
+                {canLazadaPack(row.order.canonical_status) && (
                   <button
                     disabled={row.busy || bulkPrinting}
                     onClick={() => runLazadaRowAction(row.order, 'pack')}
@@ -1064,7 +1075,7 @@ export default function UnifiedOrdersPanel() {
                     Pack
                   </button>
                 )}
-                {canLazadaPrintAwb(row.order.order_status) && (
+                {canLazadaPrintAwb(row.order.canonical_status) && (
                   <button
                     disabled={row.busy || bulkPrinting}
                     onClick={() => runLazadaRowAction(row.order, 'awb')}
@@ -1074,7 +1085,7 @@ export default function UnifiedOrdersPanel() {
                     AWB + Packing
                   </button>
                 )}
-                {canLazadaReadyToShip(row.order.order_status) && (
+                {canLazadaReadyToShip(row.order.canonical_status) && (
                   <button
                     disabled={row.busy || bulkPrinting}
                     onClick={() => runLazadaRowAction(row.order, 'rts')}
@@ -1088,7 +1099,7 @@ export default function UnifiedOrdersPanel() {
           }
           return (
             <div className="flex flex-col items-end gap-1.5">
-              {canShip(row.order.order_status) && (
+              {canShip(row.order.canonical_status) && (
                 <button
                   onClick={() => setArrangingOrder(row.order)}
                   className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
@@ -1096,9 +1107,9 @@ export default function UnifiedOrdersPanel() {
                   Arrange Shipment
                 </button>
               )}
-              {canPrintLabel(row.order.order_status) && <PrintLabelButton order={row.order} />}
-              {!canShip(row.order.order_status) &&
-                !canPrintLabel(row.order.order_status) && (
+              {canPrintLabel(row.order.canonical_status) && <PrintLabelButton order={row.order} />}
+              {!canShip(row.order.canonical_status) &&
+                !canPrintLabel(row.order.canonical_status) && (
                   <span className="text-xs text-ink-300">—</span>
                 )}
             </div>

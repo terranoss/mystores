@@ -2,14 +2,9 @@ import { useEffect, useState } from 'react';
 import Spinner from './Spinner';
 import ArrangeShipmentModal from './ArrangeShipmentModal';
 import PrintLabelButton from './PrintLabelButton';
-import {
-  StatusBadge,
-  canShip,
-  canPrintLabel,
-  formatCurrency,
-  formatDateTime,
-  getShipByInfo,
-} from './orderHelpers';
+import { canPrintLabel, canShip } from '../lib/orderStatus';
+import { formatCurrency, formatDateTime, getShipByInfo } from '../lib/orderFormat';
+import OrderStatusBadge from '../lib/OrderStatusBadge';
 import { getOrder, type Order } from '../api/client';
 
 interface OrderDetailDrawerProps {
@@ -69,7 +64,10 @@ export default function OrderDetailDrawer({
             </h3>
             {order && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StatusBadge status={order.order_status} />
+                <OrderStatusBadge
+                  status={order.order_status}
+                  canonical={order.canonical_status}
+                />
                 {order.store?.shop_name && (
                   <span className="text-xs text-ink-500">
                     {order.store.shop_name}
@@ -221,7 +219,7 @@ export default function OrderDetailDrawer({
             >
               Close
             </button>
-            {order && canShip(order.order_status) && (
+            {order && canShip(order.canonical_status) && (
               <button
                 onClick={() => setArrangingShipment(true)}
                 className="flex-1 min-w-[10rem] px-4 py-2.5 text-sm font-semibold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition active:scale-[0.97]"
@@ -229,7 +227,7 @@ export default function OrderDetailDrawer({
                 🚚 Arrange Shipment
               </button>
             )}
-            {order && canPrintLabel(order.order_status) && (
+            {order && canPrintLabel(order.canonical_status) && (
               <PrintLabelButton order={order} />
             )}
           </div>

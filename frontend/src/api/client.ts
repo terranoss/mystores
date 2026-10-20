@@ -383,6 +383,8 @@ export interface Order {
   store_id: number;
   order_sn: string;
   order_status: string;
+  /** Platform-independent state derived by the backend; null when the raw status is unmapped. */
+  canonical_status?: string | null;
   total_amount: number;
   currency: string | null;
   buyer_username: string | null;

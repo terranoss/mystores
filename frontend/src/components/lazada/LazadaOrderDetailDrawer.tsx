@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import Spinner from '../Spinner';
 import {
-  LazadaStatusBadge,
   canLazadaPack,
   canLazadaPrintAwb,
   canLazadaReadyToShip,
-  formatCurrency,
-  formatDateTime,
-} from './lazadaOrderHelpers';
+} from '../../lib/orderStatus';
+import { formatCurrency, formatDateTime } from '../../lib/orderFormat';
+import OrderStatusBadge from '../../lib/OrderStatusBadge';
 import {
   getOrder,
   packLazadaOrder,
@@ -92,7 +91,10 @@ export default function LazadaOrderDetailDrawer({
             </h3>
             {order && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <LazadaStatusBadge status={order.order_status} />
+                <OrderStatusBadge
+                  status={order.order_status}
+                  canonical={order.canonical_status}
+                />
                 {order.store?.shop_name && (
                   <span className="text-xs text-ink-500">{order.store.shop_name}</span>
                 )}
@@ -159,7 +161,7 @@ export default function LazadaOrderDetailDrawer({
                 <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Fulfillment</p>
                 <p className="text-xs text-ink-500">Lazada flow: Pack → Print AWB → Ready to ship</p>
                 <div className="flex flex-col gap-2">
-                  {canLazadaPack(order.order_status) && (
+                  {canLazadaPack(order.canonical_status) && (
                     <button
                       disabled={!!busy}
                       onClick={() =>
@@ -173,7 +175,7 @@ export default function LazadaOrderDetailDrawer({
                       {busy === 'pack' ? 'Packing…' : 'Pack order'}
                     </button>
                   )}
-                  {canLazadaPrintAwb(order.order_status) && (
+                  {canLazadaPrintAwb(order.canonical_status) && (
                     <button
                       disabled={!!busy}
                       onClick={() =>
@@ -190,7 +192,7 @@ export default function LazadaOrderDetailDrawer({
                       {busy === 'awb' ? 'Loading…' : 'Print AWB + Packing'}
                     </button>
                   )}
-                  {canLazadaReadyToShip(order.order_status) && (
+                  {canLazadaReadyToShip(order.canonical_status) && (
                     <button
                       disabled={!!busy}
                       onClick={() =>
