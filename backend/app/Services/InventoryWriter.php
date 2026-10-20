@@ -11,14 +11,21 @@ use Illuminate\Support\Facades\DB;
  * Owns applying a local stock or price change and recording it exactly once.
  *
  * The apply() path is for synchronous writes: it updates the local product or
- * variant and writes one completed audit row per changed dimension. Queued
- * pushes use begin() while the marketplace call is in flight and close that
- * row with succeed() or fail().
+ * variants and writes one completed row per changed product/variant, carrying
+ * both dimensions when both are supplied. Queued pushes use begin() while the
+ * marketplace call is in flight and close that row with succeed() or fail().
  */
 class InventoryWriter
 {
+    private readonly WorkspaceAccess $workspaceAccess;
+
+    public function __construct(?WorkspaceAccess $workspaceAccess = null)
+    {
+        $this->workspaceAccess = $workspaceAccess ?? app(WorkspaceAccess::class);
+    }
+
     /**
-     * Apply a local stock/price change and record one success row per change.
+     * Apply a local stock/price change and record one success row per target.
      *
      * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $stockList
      * @param  list<array{model_id?:int,original_price?:float|int|string}>|null  $priceList
@@ -32,16 +39,40 @@ class InventoryWriter
         bool $audit = true,
     ): void {
         DB::transaction(function () use ($product, $stockList, $priceList, $source, $audit) {
-            if ($stockList) {
-                $this->applyStock($product, $stockList, $source, $audit);
+            $targets = $this->resolveTargets($product, $stockList, $priceList);
+
+            foreach ($targets as $target) {
+                $this->writeTarget($product, $target, $source, $audit);
             }
 
-            if ($priceList) {
-                $this->applyPrice($product, $priceList, $source, $audit);
-            }
-
+            $this->rollUpParent($product, $stockList, $priceList, $targets);
             $this->persistProduct($product, $source);
         });
+    }
+
+    /**
+     * Record one completed row for a change the caller applied itself (a pull).
+     */
+    public function recordChange(
+        Product $product,
+        ?ProductVariant $variant,
+        ?int $oldStock,
+        ?int $newStock,
+        ?float $oldPrice,
+        ?float $newPrice,
+        string $source,
+    ): void {
+        $this->writeRow(
+            true,
+            $product,
+            $variant?->id,
+            $variant?->model_sku ?? $product->item_sku,
+            $oldStock,
+            $newStock,
+            $oldPrice,
+            $newPrice,
+            $source,
+        );
     }
 
     public function begin(
@@ -82,124 +113,227 @@ class InventoryWriter
             'error_message' => $message,
         ]);
 
-        if ($restoreDirty && $log->product_id !== null) {
-            // The push was accepted optimistically, so a failure must make the
-            // item show as unsynchronised again.
-            Product::whereKey($log->product_id)->update(['needs_push' => true]);
+        if (! $restoreDirty || $log->product_id === null) {
+            return;
         }
+
+        // The push was accepted optimistically, so a failure must make the
+        // item show as unsynchronised again. Scope the write to the workspace
+        // that owns the log's product instead of trusting a bare product id.
+        $product = $log->product()->with('store')->first();
+        if ($product === null) {
+            return;
+        }
+
+        $query = Product::whereKey($product->id);
+        $workspaceId = $product->store?->workspace_id;
+
+        if ($workspaceId !== null) {
+            $this->workspaceAccess->scopeProductsToWorkspace($query, (int) $workspaceId);
+        } else {
+            $query->whereHas('store', fn ($store) => $store->where('user_id', $product->store?->user_id));
+        }
+
+        $query->update(['needs_push' => true]);
     }
 
     /**
-     * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>  $stockList
+     * Resolve which products/variants a call mutates and the values to write.
+     *
+     * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $stockList
+     * @param  list<array{model_id?:int,original_price?:float|int|string}>|null  $priceList
+     * @return list<array{variant:?ProductVariant,stock:?int,price:?float}>
      */
-    private function applyStock(Product $product, array $stockList, string $source, bool $audit): void
+    private function resolveTargets(Product $product, ?array $stockList, ?array $priceList): array
     {
-        $hasModelIds = collect($stockList)->contains(fn ($entry) => isset($entry['model_id']));
+        $stockByModel = $this->valuesByModel($stockList, 'stock');
+        $priceByModel = $this->valuesByModel($priceList, 'price');
 
-        if ($product->has_variants && $hasModelIds) {
-            foreach ($stockList as $entry) {
-                if (! isset($entry['model_id'])) {
-                    continue;
-                }
+        if ($stockByModel !== [] || $priceByModel !== []) {
+            return $this->variantTargetsByModel($product, $stockList, $priceList, $stockByModel, $priceByModel);
+        }
 
-                $variant = ProductVariant::where('product_id', $product->id)
-                    ->where('model_id', $entry['model_id'])
-                    ->first();
+        $firstStock = $this->firstValue($stockList, 'stock');
+        $firstPrice = $this->firstValue($priceList, 'price');
 
-                if (! $variant) {
-                    continue;
-                }
+        if ($product->has_variants) {
+            $variants = ProductVariant::where('product_id', $product->id)->get();
 
-                $oldStock = (int) $variant->stock;
-                $newStock = (int) ($entry['seller_stock'][0]['stock'] ?? 0);
-                $variant->update(['stock' => $newStock]);
+            if ($variants->isNotEmpty()) {
+                return $variants->map(fn (ProductVariant $variant) => [
+                    'variant' => $variant,
+                    'stock' => $firstStock,
+                    'price' => $firstPrice,
+                ])->all();
+            }
+        }
 
-                $this->record($audit, $product, $variant->id, $variant->model_sku, $oldStock, $newStock, null, null, $source);
+        return [[
+            'variant' => null,
+            'stock' => $firstStock,
+            'price' => $firstPrice,
+        ]];
+    }
+
+    /**
+     * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $stockList
+     * @param  list<array{model_id?:int,original_price?:float|int|string}>|null  $priceList
+     * @param  array<int, int>  $stockByModel
+     * @param  array<int, float>  $priceByModel
+     * @return list<array{variant:?ProductVariant,stock:?int,price:?float}>
+     */
+    private function variantTargetsByModel(
+        Product $product,
+        ?array $stockList,
+        ?array $priceList,
+        array $stockByModel,
+        array $priceByModel,
+    ): array {
+        $modelIds = array_values(array_unique(array_merge(
+            array_keys($stockByModel),
+            array_keys($priceByModel),
+        )));
+
+        $fallbackStock = $stockByModel === [] ? $this->firstValue($stockList, 'stock') : null;
+        $fallbackPrice = $priceByModel === [] ? $this->firstValue($priceList, 'price') : null;
+
+        $targets = [];
+        foreach ($modelIds as $modelId) {
+            $variant = ProductVariant::where('product_id', $product->id)
+                ->where('model_id', $modelId)
+                ->first();
+
+            if (! $variant) {
+                continue;
             }
 
+            $targets[] = [
+                'variant' => $variant,
+                'stock' => $stockByModel[$modelId] ?? $fallbackStock,
+                'price' => $priceByModel[$modelId] ?? $fallbackPrice,
+            ];
+        }
+
+        return $targets;
+    }
+
+    /**
+     * @param  array{variant:?ProductVariant,stock:?int,price:?float}  $target
+     */
+    private function writeTarget(Product $product, array $target, string $source, bool $audit): void
+    {
+        /** @var ProductVariant|null $variant */
+        $variant = $target['variant'];
+        $subject = $variant ?? $product;
+
+        $changes = [];
+        $oldStock = null;
+        $oldPrice = null;
+
+        if ($target['stock'] !== null) {
+            $oldStock = (int) $subject->stock;
+            $changes['stock'] = $target['stock'];
+        }
+
+        if ($target['price'] !== null) {
+            $oldPrice = (float) $subject->price;
+            $changes['price'] = $target['price'];
+        }
+
+        if ($changes === []) {
+            return;
+        }
+
+        $subject->update($changes);
+
+        $this->writeRow(
+            $audit,
+            $product,
+            $variant?->id,
+            $variant?->model_sku ?? $product->item_sku,
+            $oldStock,
+            $target['stock'],
+            $oldPrice,
+            $target['price'],
+            $source,
+        );
+    }
+
+    /**
+     * @param  list<array{variant:?ProductVariant,stock:?int,price:?float}>  $targets
+     * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $stockList
+     * @param  list<array{model_id?:int,original_price?:float|int|string}>|null  $priceList
+     */
+    private function rollUpParent(Product $product, ?array $stockList, ?array $priceList, array $targets): void
+    {
+        $targetedVariants = collect($targets)->contains(fn (array $target) => $target['variant'] !== null);
+
+        if (! $targetedVariants) {
+            return;
+        }
+
+        if ($stockList !== null) {
             $product->stock = (int) ProductVariant::where('product_id', $product->id)->sum('stock');
-
-            return;
         }
 
-        if ($product->has_variants) {
-            $newStock = (int) ($stockList[0]['seller_stock'][0]['stock'] ?? 0);
-            $variants = ProductVariant::where('product_id', $product->id)->get();
-
-            foreach ($variants as $variant) {
-                $oldStock = (int) $variant->stock;
-                $variant->update(['stock' => $newStock]);
-
-                $this->record($audit, $product, $variant->id, $variant->model_sku, $oldStock, $newStock, null, null, $source);
+        if ($priceList !== null) {
+            $minPrice = ProductVariant::where('product_id', $product->id)->min('price');
+            if ($minPrice !== null) {
+                $product->price = (float) $minPrice;
             }
-
-            $product->stock = $newStock * max(1, $variants->count());
-
-            return;
         }
-
-        $oldStock = (int) $product->stock;
-        $newStock = (int) ($stockList[0]['seller_stock'][0]['stock'] ?? 0);
-        $product->stock = $newStock;
-
-        $this->record($audit, $product, null, $product->item_sku, $oldStock, $newStock, null, null, $source);
     }
 
     /**
-     * @param  list<array{model_id?:int,original_price?:float|int|string}>  $priceList
+     * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $list
+     * @return array<int, int>
      */
-    private function applyPrice(Product $product, array $priceList, string $source, bool $audit): void
+    private function valuesByModel(?array $list, string $dimension): array
     {
-        $hasModelIds = collect($priceList)->contains(fn ($entry) => isset($entry['model_id']));
+        $values = [];
 
-        if ($product->has_variants && $hasModelIds) {
-            foreach ($priceList as $entry) {
-                if (! isset($entry['model_id'])) {
-                    continue;
-                }
-
-                $variant = ProductVariant::where('product_id', $product->id)
-                    ->where('model_id', $entry['model_id'])
-                    ->first();
-
-                if (! $variant) {
-                    continue;
-                }
-
-                $oldPrice = (float) $variant->price;
-                $newPrice = (float) ($entry['original_price'] ?? 0);
-                $variant->update(['price' => $newPrice]);
-
-                $this->record($audit, $product, $variant->id, $variant->model_sku, null, null, $oldPrice, $newPrice, $source);
+        foreach ($list ?? [] as $entry) {
+            if (! isset($entry['model_id'])) {
+                continue;
             }
 
-            $minPrice = ProductVariant::where('product_id', $product->id)->min('price');
-            $product->price = $minPrice !== null ? (float) $minPrice : $product->price;
-
-            return;
+            $value = $this->valueOf($entry, $dimension);
+            if ($value !== null) {
+                $values[(int) $entry['model_id']] = $value;
+            }
         }
 
-        if ($product->has_variants) {
-            $newPrice = (float) ($priceList[0]['original_price'] ?? 0);
-            $variants = ProductVariant::where('product_id', $product->id)->get();
+        return $values;
+    }
 
-            foreach ($variants as $variant) {
-                $oldPrice = (float) $variant->price;
-                $variant->update(['price' => $newPrice]);
+    /**
+     * @param  list<array{model_id?:int,seller_stock?:list<array{stock:int}>}>|null  $list
+     */
+    private function firstValue(?array $list, string $dimension): int|float|null
+    {
+        $entry = $list[0] ?? null;
 
-                $this->record($audit, $product, $variant->id, $variant->model_sku, null, null, $oldPrice, $newPrice, $source);
+        return $entry === null ? null : $this->valueOf($entry, $dimension);
+    }
+
+    /**
+     * @param  array<string, mixed>  $entry
+     */
+    private function valueOf(array $entry, string $dimension): int|float|null
+    {
+        if ($dimension === 'stock') {
+            if (! array_key_exists('seller_stock', $entry)) {
+                return null;
             }
 
-            $product->price = $newPrice;
-
-            return;
+            return (int) ($entry['seller_stock'][0]['stock'] ?? 0);
         }
 
-        $oldPrice = (float) $product->price;
-        $newPrice = (float) ($priceList[0]['original_price'] ?? 0);
-        $product->price = $newPrice;
+        if (! array_key_exists('original_price', $entry)) {
+            return null;
+        }
 
-        $this->record($audit, $product, null, $product->item_sku, null, null, $oldPrice, $newPrice, $source);
+        return (float) $entry['original_price'];
     }
 
     private function persistProduct(Product $product, string $source): void
@@ -214,7 +348,7 @@ class InventoryWriter
         $product->save();
     }
 
-    private function record(
+    private function writeRow(
         bool $audit,
         Product $product,
         ?int $variantId,
