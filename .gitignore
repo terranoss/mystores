@@ -1,0 +1,20 @@
+# Ignore everything by default
+/*
+
+# Allow public release files & directories
+!/README.md
+!/LICENSE
+!/Docs/
+!/Docs/documentation.html
+!/release_artifacts/
+!/release_artifacts/**
+!/.gitignore
+
+# Explicitly ignore internal documentation
+/Docs/adr/
+/Docs/agents/
+
+# OS & temporary files
+.DS_Store
+Thumbs.db
+*.log
