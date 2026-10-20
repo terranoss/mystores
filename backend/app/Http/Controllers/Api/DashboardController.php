@@ -319,6 +319,7 @@ class DashboardController extends Controller
                 'id' => $order->id,
                 'order_sn' => $order->order_sn,
                 'order_status' => $order->order_status,
+                'canonical_status' => $order->canonical_status,
                 'buyer_username' => $order->buyer_username,
                 'platform' => $order->store?->platform ?: 'shopee',
                 'shop_name' => $order->store?->shop_name ?: ('Store #'.$order->store_id),

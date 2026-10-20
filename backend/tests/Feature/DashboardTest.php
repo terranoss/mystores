@@ -492,6 +492,7 @@ class DashboardTest extends TestCase
         $pickList->assertJsonPath('total_units', 2);
         $pickList->assertJsonPath('aggregated_items.0.item_name', 'Ready Item');
         $pickList->assertJsonPath('orders.0.order_sn', 'LZ-NF-RTS');
+        $pickList->assertJsonPath('orders.0.canonical_status', 'ready_to_ship');
     }
 
     public function test_today_picklist_returns_aggregated_items_and_orders(): void
