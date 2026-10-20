@@ -1,5 +1,7 @@
 # MyStores — Multi-Store E-Commerce & Retail Management Application
 
+**English** | [Bahasa Melayu](README.ms.md)
+
 > **Self-Hosted Multi-Marketplace Store Management Platform**  
 > Manage products, stock, pricing, orders, fulfillment, pick lists, and promotions across your **Shopee** and **Lazada** stores from a single unified web interface.
 
@@ -16,16 +18,47 @@
 
 ---
 
+## 📸 Screenshots
+
+### Dashboard
+Sales overview, linked stores, pending orders, and low-stock alerts at a glance.
+
+![Dashboard](Docs/1.jpg)
+
+### Today's Pick List
+Interactive printout checklist — pick with photo, comment, then print.
+
+![Pick List](Docs/2.jpg)
+
+### Stock & Price
+Pull marketplace data or push local stock changes across all connected stores.
+
+![Stock & Price](Docs/3.jpg)
+
+---
+
 ## 📦 Release Package
 
 Pre-compiled production-ready release archives are provided in the [`release_artifacts/`](release_artifacts/) directory:
 
-- **Download:** [`release_artifacts/mystores-v1.0.0.zip`](release_artifacts/mystores-v1.0.0.zip)
+- **Download:** [`release_artifacts/mystores-v1.1.0.zip`](release_artifacts/mystores-v1.1.0.zip)
 
 The release archive includes:
 1. `web/` — Pre-built Laravel 12 API backend + compiled React 19 single-page application ready to upload to any cPanel or VPS web root.
 2. `documentation.html` — Interactive step-by-step setup and operations manual.
 3. `README.txt` — Quick orientation reference.
+
+---
+
+## 📋 Prerequisites
+
+Before you begin, make sure you have the following ready:
+
+1. **Shopee Open Platform account** (required to connect Shopee stores) — apply for free at [https://open.shopee.com/](https://open.shopee.com/)
+2. **Lazada Open Platform account** (required to connect Lazada stores) — apply for free at [https://open.lazada.com/](https://open.lazada.com/)
+3. **Web hosting + domain** with a MySQL database — for the cPanel or VPS environment described below
+
+*(Only one marketplace account is strictly required to get started — connect Shopee, Lazada, or both.)*
 
 ---
 

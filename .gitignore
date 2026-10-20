@@ -3,6 +3,7 @@
 
 # Allow public release files & directories
 !/README.md
+!/README.ms.md
 !/LICENSE
 !/Docs/
 !/Docs/documentation.html
