@@ -41,7 +41,7 @@ Pull marketplace data or push local stock changes across all connected stores.
 
 Pre-compiled production-ready release archives are provided in the [`release_artifacts/`](release_artifacts/) directory:
 
-- **Download:** [`release_artifacts/mystores-v1.1.0.zip`](release_artifacts/mystores-v1.1.0.zip)
+- **Download:** [`release_artifacts/mystores-v1.1.1.zip`](release_artifacts/mystores-v1.1.1.zip)
 
 The release archive includes:
 1. `web/` — Pre-built Laravel 12 API backend + compiled React 19 single-page application ready to upload to any cPanel or VPS web root.
@@ -110,6 +110,16 @@ For detailed installation instructions, server optimization, and marketplace API
 
 ---
 
+## 🛠️ Installation Service
+
+Prefer someone else to handle the setup for you?  
+If you need assistance deploying MyStores to your cPanel or VPS hosting, setting up the database, configuring cron jobs, or getting your marketplace APIs connected, an installation service is available on Shopee:
+
+👉 **[Order Installation Service on Shopee](https://shopee.com.my/product/61084342/47869625790/)**
+
+---
+
 ## 📄 License
 
 This software is provided under the terms described in the documentation and release package.
+

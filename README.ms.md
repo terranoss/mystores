@@ -41,7 +41,7 @@ Tarik maklumat pasaran atau tolak kemas kini stok tempatan ke semua kedai yang d
 
 Arkib keluaran sedia-guna untuk persekitaran pengeluaran (*production*) disediakan dalam direktori [`release_artifacts/`](release_artifacts/):
 
-- **Muat Turun:** [`release_artifacts/mystores-v1.1.0.zip`](release_artifacts/mystores-v1.1.0.zip)
+- **Muat Turun:** [`release_artifacts/mystores-v1.1.1.zip`](release_artifacts/mystores-v1.1.1.zip)
 
 Kandungan arkib keluaran merangkumi:
 1. `web/` — Bahagian belakang (*backend*) API Laravel 12 yang telah diprapasang + aplikasi satu halaman (*SPA*) React 19 terkompilasi, sedia dimuat naik ke mana-mana *root* cPanel atau VPS.
@@ -110,6 +110,16 @@ Untuk arahan pemasangan terperinci, pengoptimuman pelayan, dan konfigurasi API p
 
 ---
 
+## 🛠️ Servis Pemasangan (*Installation Service*)
+
+Perlukan bantuan profesional untuk pemasangan?  
+Jika anda memerlukan bantuan untuk memasang MyStores pada pengehosan cPanel atau VPS anda, persediaan pangkalan data, konfigurasi tugas cron (*cron jobs*), atau penyambungan API pasaran (*Shopee / Lazada*), servis pemasangan disediakan di Shopee:
+
+👉 **[Tempah Servis Pemasangan di Shopee](https://shopee.com.my/product/61084342/47869625790/)**
+
+---
+
 ## 📄 Lesen
 
 Perisian ini disediakan di bawah terma yang diterangkan dalam dokumentasi dan pakej keluaran.
+
